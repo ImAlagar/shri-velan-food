@@ -18,3 +18,9 @@ export const response = (success, message, data = null) => ({
   message,
   data
 });
+
+export const calculateAverageRating = (ratings) => {
+  if (!ratings || ratings.length === 0) return 0;
+  const sum = ratings.reduce((acc, rating) => acc + rating.rating, 0);
+  return (sum / ratings.length).toFixed(1);
+};

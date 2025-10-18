@@ -1,0 +1,22 @@
+import express from 'express';
+const router = express.Router();
+
+// Import Routes
+import authRoutes from './authRoutes.js';
+import userRoutes from './userRoutes.js';
+import productRoutes from './productRoutes.js';
+import categoryRoutes from './categoryRoutes.js';
+import orderRoutes from './orderRoutes.js';
+import contactRoutes from './contactRoutes.js';
+import ratingRoutes from './ratingRoutes.js';
+
+// Use Routes
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/products', productRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/orders', orderRoutes);
+router.use('/contacts', contactRoutes);
+router.use('/ratings', ratingRoutes);
+
+export default router;

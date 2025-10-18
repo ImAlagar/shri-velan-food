@@ -3,24 +3,17 @@ export const errorHandler = (err, req, res, next) => {
   error.message = err.message;
 
   // Log error
-  console.error(err);
+  console.error('Error:', err);
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = { message, statusCode: 404 };
-  }
-
-  // Mongoose duplicate key
-  if (err.code === 11000) {
+  // Prisma errors
+  if (err.code === 'P2002') {
     const message = 'Duplicate field value entered';
     error = { message, statusCode: 400 };
   }
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join(', ');
-    error = { message, statusCode: 400 };
+  if (err.code === 'P2025') {
+    const message = 'Record not found';
+    error = { message, statusCode: 404 };
   }
 
   // JWT errors
@@ -32,6 +25,12 @@ export const errorHandler = (err, req, res, next) => {
   if (err.name === 'TokenExpiredError') {
     const message = 'Token expired';
     error = { message, statusCode: 401 };
+  }
+
+  // Validation errors
+  if (err.name === 'ValidationError') {
+    const message = Object.values(err.errors).map(val => val.message).join(', ');
+    error = { message, statusCode: 400 };
   }
 
   res.status(error.statusCode || 500).json({
