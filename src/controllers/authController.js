@@ -28,18 +28,38 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
-  await authService.forgotPassword(req.body.email);
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required'
+    });
+  }
+
+  const result = await authService.forgotPassword(email);
+  
   res.status(200).json({
     success: true,
-    message: 'Password reset email sent'
+    message: result.message
   });
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
-  await authService.resetPassword(req.body.token, req.body.password);
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Token and password are required'
+    });
+  }
+
+  const result = await authService.resetPassword(token, password);
+  
   res.status(200).json({
     success: true,
-    message: 'Password reset successful'
+    message: result.message
   });
 });
 

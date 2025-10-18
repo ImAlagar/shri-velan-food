@@ -36,7 +36,8 @@
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^7.0.9",
-    "prisma": "^6.17.1"
+    "prisma": "^6.17.1",
+    "resend": "^6.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

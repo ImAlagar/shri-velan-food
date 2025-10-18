@@ -88,7 +88,7 @@ class AuthService {
     return true;
   }
 
-async forgotPassword(email) {
+  async forgotPassword(email) {
     const user = await prisma.user.findUnique({
       where: { email }
     });
@@ -105,9 +105,9 @@ async forgotPassword(email) {
       { expiresIn: '1h' }
     );
 
-    // Send email
+    // Send email - FIX: Pass user object instead of just email
     try {
-      await emailService.sendPasswordResetEmail(email, resetToken);
+      await emailService.sendPasswordResetEmail(user, resetToken);
       return { message: 'If the email exists, a reset link has been sent' };
     } catch (error) {
       console.error('Failed to send password reset email:', error);
