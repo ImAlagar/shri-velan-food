@@ -33,8 +33,17 @@ export const createCategory = asyncHandler(async (req, res) => {
 });
 
 
-export const getCategories = asyncHandler(async (req, res) => {
-  const categories = await categoryService.getCategories();
+export const getAllCategories = asyncHandler(async (req, res) => {
+  const categories = await categoryService.getAllCategories();
+  res.status(200).json({
+    success: true,
+    data: categories
+  });
+});
+
+// For customers - only active categories  
+export const getActiveCategories = asyncHandler(async (req, res) => {
+  const categories = await categoryService.getActiveCategories();
   res.status(200).json({
     success: true,
     data: categories

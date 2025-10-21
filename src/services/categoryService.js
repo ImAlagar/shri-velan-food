@@ -7,7 +7,19 @@ class CategoryService {
     });
   }
 
-  async getCategories() {
+  async getAllCategories() {
+    return await prisma.category.findMany({
+      include: {
+        products: {
+          select: { id: true, status: true } // Include status for admin
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  // Get only ACTIVE categories (for customers)
+  async getActiveCategories() {
     return await prisma.category.findMany({
       where: { isActive: true },
       include: {

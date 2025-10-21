@@ -1,17 +1,21 @@
 import express from 'express';
 import { 
   createCategory,
-  getCategories,
   getCategory,
   updateCategory,
-  deleteCategory 
+  deleteCategory, 
+  getActiveCategories,
+  getAllCategories
 } from '../controllers/categoryController.js';
 import { auth, authorize } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 
 const router = express.Router();
 
-router.get('/', getCategories);
+router.get('/active', getActiveCategories);
+
+// Admin route - all categories
+router.get('/', auth, authorize('ADMIN'), getAllCategories);
 router.get('/:id', getCategory);
 
 // Admin routes
