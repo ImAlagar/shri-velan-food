@@ -12,8 +12,17 @@ const app = express();
 
 // Security Middleware
 app.use(helmet());
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+    } else {
+        callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 app.use(compression());
