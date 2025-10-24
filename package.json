@@ -24,6 +24,7 @@
   "homepage": "https://github.com/ImAlagar/shri-velan-food#readme",
   "dependencies": {
     "@prisma/client": "^6.17.1",
+    "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^1.40.0",
     "compression": "^1.8.1",
