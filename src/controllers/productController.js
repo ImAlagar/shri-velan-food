@@ -81,7 +81,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
   const productId = req.params.id;
   
-  // Handle file uploads first
+  // Handle file uploads - IMPORTANT: Don't override existing images
   if (req.files && req.files.length > 0) {
     // Upload new images to product-specific folder
     const newImageData = await uploadService.uploadMultipleProductImages(req.files, productId);
@@ -91,8 +91,54 @@ export const updateProduct = asyncHandler(async (req, res) => {
     // Get existing product to combine images
     const existingProduct = await productService.getProductById(productId);
     
-    updateData.images = [...(existingProduct.images || []), ...newImageUrls];
-    updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
+    // FIX: Check if existingImages field is provided for reordering/deletion
+    if (req.body.existingImages) {
+      try {
+        // If existingImages is provided, use that as the base (for reordering)
+        const existingImagesFromRequest = typeof req.body.existingImages === 'string'
+          ? JSON.parse(req.body.existingImages)
+          : req.body.existingImages;
+        
+        updateData.images = [...existingImagesFromRequest, ...newImageUrls];
+        updateData.imagePublicIds = [
+          ...existingImagesFromRequest.map((img, index) => 
+            existingProduct.imagePublicIds[existingProduct.images.indexOf(img)]
+          ).filter(id => id), 
+          ...newImagePublicIds
+        ];
+      } catch (error) {
+        console.error('Error parsing existingImages:', error);
+        // Fallback: combine with existing images from database
+        updateData.images = [...(existingProduct.images || []), ...newImageUrls];
+        updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
+      }
+    } else {
+      // If no existingImages provided, just add new images to existing ones
+      updateData.images = [...(existingProduct.images || []), ...newImageUrls];
+      updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
+    }
+  } else {
+    // If no new files, but existingImages is provided for reordering
+    if (req.body.existingImages) {
+      try {
+        const existingImagesFromRequest = typeof req.body.existingImages === 'string'
+          ? JSON.parse(req.body.existingImages)
+          : req.body.existingImages;
+        
+        updateData.images = existingImagesFromRequest;
+        
+        // Reorder public IDs accordingly
+        const existingProduct = await productService.getProductById(productId);
+        const imageToPublicIdMap = {};
+        existingProduct.images.forEach((img, index) => {
+          imageToPublicIdMap[img] = existingProduct.imagePublicIds[index];
+        });
+        
+        updateData.imagePublicIds = existingImagesFromRequest.map(img => imageToPublicIdMap[img]).filter(id => id);
+      } catch (error) {
+        console.error('Error handling existingImages:', error);
+      }
+    }
   }
 
   // Parse JSON fields if they exist and are strings
@@ -110,23 +156,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
     updateData.tags = typeof req.body.tags === 'string'
       ? JSON.parse(req.body.tags)
       : req.body.tags;
-  }
-  
-  // Handle existingImages if provided (for image reordering/deletion)
-  if (req.body.existingImages) {
-    try {
-      const existingImages = typeof req.body.existingImages === 'string'
-        ? JSON.parse(req.body.existingImages)
-        : req.body.existingImages;
-      
-      // If existingImages is provided, it should replace the current images array
-      if (Array.isArray(existingImages)) {
-        updateData.images = existingImages;
-      }
-    } catch (error) {
-      console.error('Error parsing existingImages:', error);
-      // Continue without updating images if parsing fails
-    }
   }
   
   // Convert boolean fields
