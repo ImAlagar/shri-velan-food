@@ -81,6 +81,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
   const productId = req.params.id;
   
+  // Handle file uploads first
   if (req.files && req.files.length > 0) {
     // Upload new images to product-specific folder
     const newImageData = await uploadService.uploadMultipleProductImages(req.files, productId);
@@ -94,21 +95,67 @@ export const updateProduct = asyncHandler(async (req, res) => {
     updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
   }
 
-  // Parse JSON fields if they exist
-  if (req.body.benefits) updateData.benefits = JSON.parse(req.body.benefits);
-  if (req.body.ingredients) updateData.ingredients = JSON.parse(req.body.ingredients);
-  if (req.body.tags) updateData.tags = JSON.parse(req.body.tags);
+  // Parse JSON fields if they exist and are strings
+  if (req.body.benefits) {
+    updateData.benefits = typeof req.body.benefits === 'string' 
+      ? JSON.parse(req.body.benefits) 
+      : req.body.benefits;
+  }
+  if (req.body.ingredients) {
+    updateData.ingredients = typeof req.body.ingredients === 'string'
+      ? JSON.parse(req.body.ingredients)
+      : req.body.ingredients;
+  }
+  if (req.body.tags) {
+    updateData.tags = typeof req.body.tags === 'string'
+      ? JSON.parse(req.body.tags)
+      : req.body.tags;
+  }
+  
+  // Handle existingImages if provided (for image reordering/deletion)
+  if (req.body.existingImages) {
+    try {
+      const existingImages = typeof req.body.existingImages === 'string'
+        ? JSON.parse(req.body.existingImages)
+        : req.body.existingImages;
+      
+      // If existingImages is provided, it should replace the current images array
+      if (Array.isArray(existingImages)) {
+        updateData.images = existingImages;
+      }
+    } catch (error) {
+      console.error('Error parsing existingImages:', error);
+      // Continue without updating images if parsing fails
+    }
+  }
   
   // Convert boolean fields
-  if (req.body.status) updateData.status = req.body.status === 'true';
-  if (req.body.isCombo) updateData.isCombo = req.body.isCombo === 'true';
+  if (req.body.status !== undefined) {
+    updateData.status = req.body.status === 'true' || req.body.status === true;
+  }
+  if (req.body.isCombo !== undefined) {
+    updateData.isCombo = req.body.isCombo === 'true' || req.body.isCombo === true;
+  }
   
   // Convert number fields
-  if (req.body.normalPrice) updateData.normalPrice = parseFloat(req.body.normalPrice);
-  if (req.body.offerPrice) updateData.offerPrice = parseFloat(req.body.offerPrice);
-  if (req.body.stock) updateData.stock = parseInt(req.body.stock);
+  if (req.body.normalPrice) {
+    updateData.normalPrice = parseFloat(req.body.normalPrice);
+  }
+  if (req.body.offerPrice !== undefined) {
+    updateData.offerPrice = req.body.offerPrice ? parseFloat(req.body.offerPrice) : null;
+  }
+  if (req.body.stock !== undefined) {
+    updateData.stock = parseInt(req.body.stock);
+  }
+
+  // Clean up the updateData - remove any fields that shouldn't be passed to Prisma
+  const fieldsToRemove = ['existingImages', 'createdAt', 'updatedAt', 'orderItems', 'ratings'];
+  fieldsToRemove.forEach(field => {
+    delete updateData[field];
+  });
 
   const product = await productService.updateProduct(productId, updateData);
+  
   res.status(200).json({
     success: true,
     message: 'Product updated successfully',
