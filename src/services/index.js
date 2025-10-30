@@ -6,7 +6,7 @@ import categoryService from './categoryService.js';
 import contactService from './contactService.js';
 import ratingService from './ratingService.js';
 import emailService from './emailService.js';
-import uploadService from './uploadService.js';
+import s3UploadService from './s3UploadService.js';
 
 export {
   authService,
@@ -17,5 +17,5 @@ export {
   contactService,
   ratingService,
   emailService,
-  uploadService
+  s3UploadService as uploadService
 };

@@ -17,6 +17,21 @@ export const upload = multer({
   }
 });
 
+// FIXED: Use .any() to accept any field name for updates
+export const uploadUpdate = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+}).any(); // ← This is the key fix - allows any field name
+
 // Alternative: If you want to use disk storage
 const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {

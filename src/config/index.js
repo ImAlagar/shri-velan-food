@@ -12,10 +12,11 @@ export const config = {
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   
-  // Cloudinary
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  // AWS S3
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  AWS_REGION: process.env.AWS_REGION || 'ap-south-1',
+  S3_BUCKET_NAME: process.env.S3_BUCKET_NAME || 'velan-ecom-images',
   
   // Email
   SMTP_HOST: process.env.SMTP_HOST,
@@ -34,9 +35,10 @@ export const {
   DATABASE_URL,
   JWT_SECRET,
   JWT_EXPIRES_IN,
-  CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET,
+  AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY,
+  AWS_REGION,
+  S3_BUCKET_NAME,
   SMTP_HOST,
   SMTP_PORT,
   SMTP_USER,

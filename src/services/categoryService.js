@@ -18,7 +18,6 @@ class CategoryService {
     });
   }
 
-  // Get only ACTIVE categories (for customers)
   async getActiveCategories() {
     return await prisma.category.findMany({
       where: { isActive: true },
@@ -50,6 +49,91 @@ class CategoryService {
       }
     });
   }
+
+async getCategoryStats() {
+  try {
+
+    // Get total categories count
+    const totalCategories = await prisma.category.count();
+
+    // Get active/inactive counts
+    const activeCategories = await prisma.category.count({
+      where: { isActive: true }
+    });
+
+    const inactiveCategories = await prisma.category.count({
+      where: { isActive: false }
+    });
+
+
+    // Get categories with product counts
+    const categoriesWithProducts = await prisma.category.findMany({
+      include: {
+        products: {
+          select: { id: true }
+        }
+      }
+    });
+
+    console.log('Categories with products:', categoriesWithProducts.length);
+
+    // Calculate total products across all categories
+    const totalProducts = categoriesWithProducts.reduce((sum, category) => {
+      return sum + category.products.length;
+    }, 0);
+
+    console.log('Total products:', totalProducts);
+
+    // Calculate average products per category
+    const averageProducts = totalCategories > 0 ? (totalProducts / totalCategories).toFixed(1) : 0;
+
+    // Get categories with most products (top 5)
+    const topCategories = categoriesWithProducts
+      .map(category => ({
+        id: category.id,
+        name: category.name,
+        productCount: category.products.length,
+        isActive: category.isActive
+      }))
+      .sort((a, b) => b.productCount - a.productCount)
+      .slice(0, 5);
+
+    console.log('Top categories:', topCategories);
+
+    // Get recent categories (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentCategories = await prisma.category.count({
+      where: {
+        createdAt: {
+          gte: thirtyDaysAgo
+        }
+      }
+    });
+
+    console.log('Recent categories:', recentCategories);
+
+    const result = {
+      totalCategories,
+      activeCategories,
+      inactiveCategories,
+      totalProducts: parseInt(totalProducts),
+      averageProducts: parseFloat(averageProducts),
+      topCategories,
+      recentCategories,
+      activePercentage: totalCategories > 0 ? parseFloat(((activeCategories / totalCategories) * 100).toFixed(1)) : 0,
+      inactivePercentage: totalCategories > 0 ? parseFloat(((inactiveCategories / totalCategories) * 100).toFixed(1)) : 0
+    };
+
+    console.log('Final stats result:', result);
+    return result;
+
+  } catch (error) {
+    console.error('Error in getCategoryStats service:', error);
+    throw error;
+  }
+}
 
   async updateCategory(id, updateData) {
     return await prisma.category.update({

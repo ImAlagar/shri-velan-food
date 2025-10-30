@@ -5,7 +5,8 @@ import {
   updateCategory,
   deleteCategory, 
   getActiveCategories,
-  getAllCategories
+  getAllCategories,
+  getCategoryStats
 } from '../controllers/categoryController.js';
 import { auth, authorize } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -15,6 +16,7 @@ const router = express.Router();
 router.get('/active', getActiveCategories);
 
 // Admin route - all categories
+router.get('/stats', auth, authorize('ADMIN'), getCategoryStats);
 router.get('/', auth, authorize('ADMIN'), getAllCategories);
 router.get('/:id', getCategory);
 

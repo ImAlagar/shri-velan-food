@@ -8,10 +8,11 @@ import {
   getProductsByCategory,
   addProductImages,
   deleteProductImage,
-  updateProductImageOrder
+  updateProductImageOrder,
+  getProductStats // Add this import
 } from '../controllers/productController.js';
 import { auth, authorize } from '../middleware/auth.js';
-import { upload } from '../middleware/upload.js';
+import { upload, uploadUpdate } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -20,9 +21,14 @@ router.get('/', getProducts);
 router.get('/:id', getProduct);
 router.get('/category/:categoryId', getProductsByCategory);
 
+// Stats route - Admin only
+router.get('/admin/stats', auth, authorize('ADMIN'), getProductStats); // Add this route
+
 // Admin routes - product CRUD
+router.put('/:id', auth, authorize('ADMIN'), uploadUpdate, updateProduct);
 router.post('/', auth, authorize('ADMIN'), upload.array('images', 5), createProduct);
-router.put('/:id', auth, authorize('ADMIN'), upload.array('images', 5), updateProduct);
+
+
 router.delete('/:id', auth, authorize('ADMIN'), deleteProduct);
 
 // Admin routes - image management

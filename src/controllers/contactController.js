@@ -1,19 +1,33 @@
+// controllers/contactController.js
 import { contactService } from '../services/index.js';
 import whatsappService from '../services/whatsappService.js';
 import { asyncHandler } from '../utils/helpers.js';
 
 export const createContact = asyncHandler(async (req, res) => {
+  console.log('📝 Contact form submitted:', req.body);
+  
   const contact = await contactService.createContact(req.body);
   
   // Send WhatsApp notification to admin
   try {
     const adminNumber = process.env.ADMIN_WHATSAPP_NUMBER;
-    const message = `📧 New Contact Form Submission:\n\nName: ${req.body.name}\nEmail: ${req.body.email}\nPhone: ${req.body.phone}\nMessage: ${req.body.message}\n\nSubmitted at: ${new Date().toLocaleString()}`;
+    const message = `📧 New Contact Form Submission:\nName: ${req.body.name}\nEmail: ${req.body.email}\nPhone: ${req.body.phone}\nMessage: ${req.body.message}`;
     
-    await whatsappService.sendMessage(adminNumber, message);
+    console.log('📱 Attempting WhatsApp notification:', {
+      adminNumber,
+      messageLength: message.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    const result = await whatsappService.sendMessage(adminNumber, message);
+    console.log('✅ WhatsApp notification sent successfully:', result.messages[0].id);
+    
   } catch (whatsappError) {
-    console.error('Failed to send WhatsApp notification:', whatsappError);
-    // Don't fail the main request if WhatsApp fails
+    console.error('❌ WhatsApp Notification Failed:', {
+      error: whatsappError.message,
+      response: whatsappError.response?.data,
+      stack: whatsappError.stack
+    });
   }
 
   res.status(201).json({
@@ -22,7 +36,6 @@ export const createContact = asyncHandler(async (req, res) => {
     data: contact
   });
 });
-
 
 export const getContacts = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, status } = req.query;
@@ -42,6 +55,16 @@ export const getContact = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: contact
+  });
+});
+
+// Add contact stats controller
+export const getContactStats = asyncHandler(async (req, res) => {
+  const stats = await contactService.getContactStats();
+  
+  res.status(200).json({
+    success: true,
+    data: stats
   });
 });
 

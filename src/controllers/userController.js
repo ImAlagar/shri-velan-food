@@ -1,3 +1,4 @@
+// controllers/userController.js
 import { userService } from '../services/index.js';
 import { asyncHandler } from '../utils/helpers.js';
 
@@ -17,6 +18,25 @@ export const getUser = asyncHandler(async (req, res) => {
   const user = await userService.getUserById(req.user.id);
   res.status(200).json({
     success: true,
+    data: user
+  });
+});
+
+export const getUserStats = asyncHandler(async (req, res) => {
+  const stats = await userService.getUserStats();
+  
+  res.status(200).json({
+    success: true,
+    data: stats
+  });
+});
+
+// Add this createUser controller
+export const createUser = asyncHandler(async (req, res) => {
+  const user = await userService.createUser(req.body);
+  res.status(201).json({
+    success: true,
+    message: 'User created successfully',
     data: user
   });
 });
