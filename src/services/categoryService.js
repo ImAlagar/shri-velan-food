@@ -31,6 +31,7 @@ class CategoryService {
     });
   }
 
+
   async getCategoryById(id) {
     return await prisma.category.findUnique({
       where: { id },

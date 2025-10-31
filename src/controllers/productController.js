@@ -321,6 +321,54 @@ export const getProductsByCategory = asyncHandler(async (req, res) => {
   });
 });
 
+
+export const getFilteredProductsByCategory = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
+  const {
+    minPrice,
+    maxPrice,
+    inStock,
+    onSale,
+    ratings,
+    sortBy,
+    page = 1,
+    limit = 20
+  } = req.query;
+
+  try {
+    // Parse query parameters
+    const filters = {
+      categoryId: parseInt(categoryId),
+      minPrice: minPrice ? parseFloat(minPrice) : 0,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : 10000,
+      inStock: inStock === 'true',
+      onSale: onSale === 'true',
+      ratings: ratings ? ratings.split(',').map(r => parseInt(r)) : [],
+      sortBy: sortBy || 'name',
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    console.log('🔍 Filtering products with:', filters);
+
+    const result = await productService.getFilteredProductsByCategory(filters);
+    
+    res.status(200).json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination,
+      filters: result.filters
+    });
+  } catch (error) {
+    console.error('Filter products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to filter products',
+      error: error.message
+    });
+  }
+});
+
 // Additional image management methods
 export const addProductImages = asyncHandler(async (req, res) => {
   const productId = req.params.id;
