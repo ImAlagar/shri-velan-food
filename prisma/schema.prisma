@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -97,22 +98,42 @@ model Contact {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  orderNumber   String        @unique
-  userId        String
-  name          String
-  email         String
-  phone         String
-  address       String
-  pincode       String
-  status        OrderStatus   @default(PENDING)
-  totalAmount   Float
-  paymentStatus PaymentStatus @default(PENDING)
-  paymentMethod String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  orderItems    OrderItem[]
-  user          User          @relation(fields: [userId], references: [id])
+  id               String        @id @default(cuid())
+  orderNumber      String        @unique
+  userId           String
+  name             String
+  email            String
+  phone            String
+  address          String
+  city             String
+  state            String
+  pincode          String
+  status           OrderStatus   @default(PENDING)
+  totalAmount      Float
+  subtotal         Float
+  shippingCost     Float         @default(0)
+  discount         Float         @default(0)
+  paymentStatus    PaymentStatus @default(PENDING)
+  paymentMethod    String
+  razorpayOrderId  String?
+  razorpayPaymentId String?
+  couponId         String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  orderItems       OrderItem[]
+  user             User          @relation(fields: [userId], references: [id])
+  coupon           Coupon?       @relation(fields: [couponId], references: [id])
+
+    // Add these tracking fields
+  trackingNumber   String?   @unique
+  carrier          String?   // e.g., "FedEx", "UPS", "DHL"
+  trackingUrl      String?
+  estimatedDelivery DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  
+  // Add tracking history
+  trackingHistory TrackingHistory[]
 
   @@map("orders")
 }
@@ -130,6 +151,19 @@ model OrderItem {
   @@map("order_items")
 }
 
+
+model TrackingHistory {
+  id          String   @id @default(cuid())
+  orderId     String
+  status      String  
+  location    String?
+  description String
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("tracking_history")
+}
+
 model Address {
   id        String   @id @default(cuid())
   userId    String
@@ -143,6 +177,37 @@ model Address {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("addresses")
+}
+
+model ShippingRate {
+  id        String   @id @default(cuid())
+  state     String   @unique
+  rate      Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shipping_rates")
+}
+
+model Coupon {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  description    String?
+  discountType   DiscountType
+  discountValue  Float
+  minOrderAmount Float?       @default(0)
+  maxDiscount    Float?
+  usageLimit     Int?
+  usedCount      Int          @default(0)
+  validFrom      DateTime
+  validUntil     DateTime
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  orders         Order[]
+
+  @@map("coupons")
 }
 
 enum UserRole {
@@ -172,4 +237,9 @@ enum ContactStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
 }

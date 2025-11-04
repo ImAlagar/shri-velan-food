@@ -51,7 +51,7 @@ class CategoryService {
     });
   }
 
-async getCategoryStats() {
+async getCategoryStats() {  
   try {
 
     // Get total categories count
