@@ -71,6 +71,52 @@ class CouponService {
     });
   }
 
+async getAvailableCoupons(subtotal = 0) {
+  const currentDate = new Date();
+  
+  const coupons = await prisma.coupon.findMany({
+    where: {
+      isActive: true,
+      validFrom: { lte: currentDate },
+      validUntil: { gte: currentDate },
+      // Simplified OR condition - coupon is available if:
+      // 1. No minimum order amount requirement, OR
+      // 2. Minimum order amount is met
+      OR: [
+        { minOrderAmount: { lte: subtotal } },
+        { minOrderAmount: { equals: null } },
+        { minOrderAmount: { equals: 0 } }
+      ]
+    },
+    select: {
+      id: true,
+      code: true,
+      description: true,
+      discountType: true,
+      discountValue: true,
+      minOrderAmount: true,
+      maxDiscount: true,
+      validUntil: true,
+      usageLimit: true,
+      usedCount: true
+    },
+    orderBy: { discountValue: 'desc' }
+  });
+
+
+  // Filter out coupons that have reached usage limit
+  const availableCoupons = coupons.filter(coupon => {
+    const hasReachedLimit = coupon.usageLimit && coupon.usedCount >= coupon.usageLimit;
+    if (hasReachedLimit) {
+      return false;
+    }
+    return true;
+  });
+
+
+  return availableCoupons;
+}
+
   async updateCoupon(id, data) {
     return await prisma.coupon.update({
       where: { id },

@@ -118,6 +118,27 @@ export const updateCategory = asyncHandler(async (req, res) => {
   });
 });
 
+export const toggleCategoryStatus = asyncHandler(async (req, res) => {
+  const categoryId = req.params.id;
+  const { isActive } = req.body;
+
+  // Validate the request body
+  if (typeof isActive !== 'boolean') {
+    return res.status(400).json({
+      success: false,
+      message: 'isActive must be a boolean value'
+    });
+  }
+
+  const category = await categoryService.updateCategory(categoryId, { isActive });
+  
+  res.status(200).json({
+    success: true,
+    message: `Category ${isActive ? 'activated' : 'deactivated'} successfully`,
+    data: category
+  });
+});
+
 export const deleteCategory = asyncHandler(async (req, res) => {
   const categoryId = req.params.id;
   

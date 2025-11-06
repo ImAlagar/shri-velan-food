@@ -6,7 +6,8 @@ import {
   deleteCategory, 
   getActiveCategories,
   getAllCategories,
-  getCategoryStats
+  getCategoryStats,
+  toggleCategoryStatus // Add this
 } from '../controllers/categoryController.js';
 import { auth, authorize } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -23,6 +24,7 @@ router.get('/:id', getCategory);
 // Admin routes
 router.post('/', auth, authorize('ADMIN'), upload.single('image'), createCategory);
 router.put('/:id', auth, authorize('ADMIN'), upload.single('image'), updateCategory);
+router.patch('/:id/status', auth, authorize('ADMIN'), toggleCategoryStatus); // Add this route
 router.delete('/:id', auth, authorize('ADMIN'), deleteCategory);
 
 export default router;

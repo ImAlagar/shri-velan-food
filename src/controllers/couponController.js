@@ -78,3 +78,14 @@ export const validateCoupon = asyncHandler(async (req, res) => {
     });
   }
 });
+
+export const getAvailableCoupons = asyncHandler(async (req, res) => {
+  const { subtotal = 0 } = req.query;
+  
+  const coupons = await couponService.getAvailableCoupons(Number(subtotal));
+  
+  res.status(200).json({
+    success: true,
+    data: coupons,
+  });
+});

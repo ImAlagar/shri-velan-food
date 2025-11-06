@@ -1,4 +1,3 @@
-// routes/coupon.js
 import express from 'express';
 import {
   getCoupons,
@@ -7,13 +6,15 @@ import {
   updateCoupon,
   deleteCoupon,
   validateCoupon,
+  getAvailableCoupons, // Add this import
 } from '../controllers/couponController.js';
 import { auth, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public route
+// Public routes
 router.post('/validate', validateCoupon);
+router.get('/available', getAvailableCoupons); // Add this route
 
 // Admin routes
 router.get('/', auth, authorize('ADMIN'), getCoupons);

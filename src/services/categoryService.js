@@ -143,6 +143,13 @@ async getCategoryStats() {
     });
   }
 
+  async updateCategory(id, updateData) {
+  return await prisma.category.update({
+    where: { id },
+    data: updateData
+  });
+}
+
   async deleteCategory(id) {
     // Check if category has products
     const products = await prisma.product.count({
