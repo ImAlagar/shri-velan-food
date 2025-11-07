@@ -9,19 +9,24 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String
-  role      UserRole  @default(CUSTOMER)
-  avatar    String?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  addresses Address[]
-  contacts  Contact[]
-  orders    Order[]
-  ratings   Rating[]
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String
+  role            UserRole  @default(CUSTOMER)
+  avatar          String?
+  isActive        Boolean   @default(true)
+  
+  // ✅ ADD THESE TWO FIELDS FOR PASSWORD RESET
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  addresses       Address[]
+  contacts        Contact[]
+  orders          Order[]
+  ratings         Rating[]
 
   @@map("users")
 }
@@ -46,6 +51,7 @@ model Product {
   description    String
   weight         String?
   isCombo        Boolean     @default(false)
+  isFeatured     Boolean     @default(false) // Add this line
   normalPrice    Float
   offerPrice     Float?
   benefits       String[]
@@ -72,6 +78,7 @@ model Rating {
   userName   String
   userEmail  String
   rating     Int
+  title      String?  // Add this line for optional title
   review     String?
   isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())

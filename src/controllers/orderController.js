@@ -35,13 +35,6 @@ export const verifyPaymentAndCreateOrder = asyncHandler(async (req, res) => {
     isCOD = false
   } = req.body;
 
-  console.log('Payment verification request:', {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    isCOD
-  });
-
   // Handle COD orders (no payment verification needed)
   if (isCOD) {
     const order = await orderService.createCODOrder({
@@ -108,8 +101,6 @@ export const getOrder = asyncHandler(async (req, res) => {
   // Use orderId instead of id since we changed the route parameter
   const orderId = req.params.orderId || req.params.id;
   
-  console.log('Getting order with ID:', orderId); // Debug log
-
   if (!orderId) {
     return res.status(400).json({
       success: false,

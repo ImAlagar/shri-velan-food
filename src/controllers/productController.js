@@ -1,6 +1,7 @@
 import { productService, uploadService } from '../services/index.js';
 import s3UploadService from '../services/s3UploadService.js';
 import { asyncHandler } from '../utils/helpers.js';
+import prisma from '../config/database.js';
 
 export const createProduct = asyncHandler(async (req, res) => {
   let imageUrls = [];
@@ -38,6 +39,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     tags: parseArrayField('tags'),
     status: req.body.status === 'true',
     isCombo: req.body.isCombo === 'true',
+    isFeatured: req.body.isFeatured === 'true', // Add isFeatured field
     normalPrice: parseFloat(req.body.normalPrice),
     offerPrice: req.body.offerPrice ? parseFloat(req.body.offerPrice) : null,
     stock: parseInt(req.body.stock),
@@ -45,17 +47,6 @@ export const createProduct = asyncHandler(async (req, res) => {
     images: imageUrls,
     imagePublicIds: imagePublicIds
   };
-
-  console.log('📥 Creating product with data:', {
-    name: productData.name,
-    categoryId: productData.categoryId,
-    normalPrice: productData.normalPrice,
-    stock: productData.stock,
-    benefits: productData.benefits,
-    ingredients: productData.ingredients,
-    tags: productData.tags,
-    imageCount: imageUrls.length
-  });
 
   const product = await productService.createProduct(productData);
   
@@ -66,17 +57,27 @@ export const createProduct = asyncHandler(async (req, res) => {
   });
 });
 
-
-
 export const getProducts = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, category, search, status } = req.query;
+  const { 
+    page = 1, 
+    limit = 10, 
+    category, 
+    search, 
+    status,
+    featured,
+    isCombo 
+  } = req.query;
+  
   const products = await productService.getProducts({ 
     page: parseInt(page), 
     limit: parseInt(limit), 
     category, 
     search, 
-    status 
+    status,
+    featured,
+    isCombo
   });
+  
   res.status(200).json({
     success: true,
     data: products
@@ -100,8 +101,127 @@ export const getProductStats = asyncHandler(async (req, res) => {
   });
 });
 
+export const getFeaturedProducts = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 8 } = req.query;
+  
+  try {
+    const result = await productService.getFeaturedProducts({
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
 
-// controllers/productController.js
+    res.status(200).json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Get featured products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch featured products',
+      error: error.message
+    });
+  }
+});
+
+export const getComboProducts = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 6 } = req.query;
+  
+  try {
+    const result = await productService.getComboProducts({
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Get combo products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch combo products',
+      error: error.message
+    });
+  }
+});
+
+export const getProductsByTags = asyncHandler(async (req, res) => {
+  const { tags } = req.query;
+  const { page = 1, limit = 10 } = req.query;
+  
+  try {
+    if (!tags) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tags parameter is required'
+      });
+    }
+
+    const tagArray = Array.isArray(tags) ? tags : tags.split(',');
+    
+    const result = await productService.getProductsByTags({
+      tags: tagArray,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Get products by tags error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch products by tags',
+      error: error.message
+    });
+  }
+});
+
+export const getBestSellingProducts = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 8 } = req.query;
+  
+  try {
+    const result = await productService.getBestSellingProducts({
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result.products,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Get best selling products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch best selling products',
+      error: error.message
+    });
+  }
+});
+
+// Admin endpoint to toggle featured status
+export const toggleFeatured = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isFeatured } = req.body;
+  
+  const product = await productService.toggleFeatured(id, isFeatured === 'true' || isFeatured === true);
+  
+  res.status(200).json({
+    success: true,
+    message: `Product ${isFeatured ? 'marked as' : 'removed from'} featured`,
+    data: product
+  });
+});
+
 export const updateProduct = asyncHandler(async (req, res) => {
   const productId = req.params.id;
   
@@ -116,18 +236,9 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   const updateData = { ...req.body };
   
-  console.log('📥 Update request received:', {
-    productId,
-    bodyFields: Object.keys(req.body),
-    filesCount: req.files ? req.files.length : 0,
-    existingImages: req.body.existingImages ? 'present' : 'missing'
-  });
-
   // Handle file uploads
   if (req.files && req.files.length > 0) {
-    console.log('📸 Uploading new images:', req.files.length);
-    
-    // Upload new images to S3
+        // Upload new images to S3
     const newImageData = await s3UploadService.uploadMultipleProductImages(req.files, productId);
     const newImageUrls = newImageData.map(img => img.url);
     const newImagePublicIds = newImageData.map(img => img.key);
@@ -157,12 +268,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
       updateData.images = [...(existingProduct.images || []), ...newImageUrls];
       updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
     }
-    
-    console.log('🖼️ Final image setup:', {
-      totalImages: updateData.images.length,
-      existingCount: existingProduct.images?.length || 0,
-      newCount: newImageUrls.length
-    });
   } else {
     // No new files, just handle image reordering
     if (req.body.existingImages) {
@@ -219,6 +324,9 @@ export const updateProduct = asyncHandler(async (req, res) => {
   if (req.body.isCombo !== undefined) {
     updateData.isCombo = req.body.isCombo === 'true' || req.body.isCombo === true;
   }
+  if (req.body.isFeatured !== undefined) {
+    updateData.isFeatured = req.body.isFeatured === 'true' || req.body.isFeatured === true;
+  }
   
   // Convert number fields
   if (req.body.normalPrice) {
@@ -237,14 +345,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
     delete updateData[field];
   });
 
-  console.log('🔄 Final update data:', {
-    fields: Object.keys(updateData),
-    imagesCount: updateData.images?.length,
-    benefitsCount: updateData.benefits?.length,
-    ingredientsCount: updateData.ingredients?.length,
-    tagsCount: updateData.tags?.length
-  });
-
   try {
     const product = await productService.updateProduct(productId, updateData);
     
@@ -258,7 +358,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
     throw error;
   }
 });
-
 
 export const deleteProduct = asyncHandler(async (req, res) => {
   const productId = req.params.id;
@@ -321,7 +420,6 @@ export const getProductsByCategory = asyncHandler(async (req, res) => {
   });
 });
 
-
 export const getFilteredProductsByCategory = asyncHandler(async (req, res) => {
   const { categoryId } = req.params;
   const {
@@ -349,7 +447,6 @@ export const getFilteredProductsByCategory = asyncHandler(async (req, res) => {
       limit: parseInt(limit)
     };
 
-    console.log('🔍 Filtering products with:', filters);
 
     const result = await productService.getFilteredProductsByCategory(filters);
     
@@ -403,8 +500,6 @@ export const addProductImages = asyncHandler(async (req, res) => {
     data: updatedProduct
   });
 });
-
-
 
 export const updateProductImageOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;

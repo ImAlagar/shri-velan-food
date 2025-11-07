@@ -1,40 +1,52 @@
 import app from './src/app.js';
 import { PORT, NODE_ENV } from './src/config/index.js';
 import prisma from './src/config/database.js';
+import logger from './src/utils/logger.js';
 
 // Test database connection on startup
 async function startServer() {
   try {
     // Test database connection
     await prisma.$queryRaw`SELECT 1`;
-    console.log('✅ Database connection test passed');
+    logger.info('✅ Database connection established successfully');
 
     // Start server
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${NODE_ENV}`);
-      console.log(`📚 API: http://localhost:${PORT}/api`);
-      console.log(`❤️ Health: http://localhost:${PORT}/health`);
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`🌍 Environment: ${NODE_ENV}`);
+      logger.info(`📚 API: http://localhost:${PORT}/api`);
+      logger.info(`❤️ Health: http://localhost:${PORT}/health`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    console.log('💡 Please ensure:');
-    console.log('   1. Database is running and accessible');
-    console.log('   2. DATABASE_URL environment variable is set correctly');
-    console.log('   3. Prisma Client is generated (run: npx prisma generate)');
+    logger.error('❌ Failed to start server:', error);
+    logger.error('💡 Please ensure:');
+    logger.error('   1. Database is running and accessible');
+    logger.error('   2. DATABASE_URL environment variable is set correctly');
+    logger.error('   3. Prisma Client is generated (run: npx prisma generate)');
     process.exit(1);
   }
 }
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('💥 Uncaught Exception:', error);
+  logger.error('💥 Uncaught Exception:', error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('👋 SIGTERM received');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('👋 SIGINT received');
+  process.exit(0);
 });
 
 // Start the server

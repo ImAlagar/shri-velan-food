@@ -29,7 +29,6 @@ export const webhookHandler = asyncHandler(async (req, res) => {
       const messageData = whatsappService.processWebhook(body.entry);
       
       if (messageData) {
-        console.log('Received WhatsApp message:', messageData);
         // Here you can process incoming messages
         // For example: save to database, send auto-reply, etc.
       }

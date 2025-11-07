@@ -80,7 +80,6 @@ class WhatsAppService {
 
       this.accessToken = resp.data.access_token;
       this.tokenExpiry = Date.now() + resp.data.expires_in * 1000;
-      console.log('WhatsApp token refreshed successfully!');
     } catch (err) {
       console.error('Failed to refresh WhatsApp token:', err.response?.data || err.message);
       throw err;
@@ -126,7 +125,6 @@ class WhatsAppService {
       `${this.baseURL}/${messageId}`,
       { headers: { Authorization: `Bearer ${this.accessToken}` } }
     );
-    console.log('Message Status:', response.data);
     return response.data;
   } catch (error) {
     console.error('Status check error:', error.response?.data);

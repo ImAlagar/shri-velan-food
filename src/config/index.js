@@ -26,7 +26,11 @@ export const config = {
   FROM_EMAIL: process.env.FROM_EMAIL,
   
   // Client URL
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000'
+  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
+
+  // Logger
+  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+  LOG_TO_FILE: process.env.LOG_TO_FILE || 'true'
 };
 
 export const {
@@ -44,7 +48,9 @@ export const {
   SMTP_USER,
   SMTP_PASS,
   FROM_EMAIL,
-  CLIENT_URL
+  CLIENT_URL,
+  LOG_LEVEL,
+  LOG_TO_FILE
 } = config;
 
 export default config;

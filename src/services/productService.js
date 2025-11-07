@@ -21,12 +21,14 @@ class ProductService {
     });
   }
 
-  async getProducts({ page, limit, category, search, status }) {
+  async getProducts({ page, limit, category, search, status, featured, isCombo } = {}) {
     const skip = (page - 1) * limit;
     const where = {};
 
     if (category) where.categoryId = category;
     if (status !== undefined) where.status = status === 'true';
+    if (featured !== undefined) where.isFeatured = featured === 'true';
+    if (isCombo !== undefined) where.isCombo = isCombo === 'true';
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -85,7 +87,7 @@ class ProductService {
     });
   }
 
-    async getProductStats() {
+  async getProductStats() {
     // Get all products with necessary fields
     const products = await prisma.product.findMany({
       include: {
@@ -113,6 +115,8 @@ class ProductService {
     const outOfStockProducts = products.filter(p => p.stock === 0).length;
     const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 10).length;
     const inStockProducts = products.filter(p => p.stock > 0).length;
+    const featuredProducts = products.filter(p => p.isFeatured).length;
+    const comboProducts = products.filter(p => p.isCombo).length;
 
     // Calculate inventory value
     const totalInventoryValue = products.reduce((sum, product) => {
@@ -185,18 +189,19 @@ class ProductService {
       recentSales.map(async (sale) => {
         const product = await prisma.product.findUnique({
           where: { id: sale.productId },
-          select: { name: true, normalPrice: true }
+          select: { name: true, normalPrice: true, isFeatured: true }
         });
         return {
           productId: sale.productId,
           productName: product?.name || 'Unknown Product',
           salesCount: sale._sum.quantity || 0,
-          revenue: (sale._sum.quantity || 0) * (product?.normalPrice || 0)
+          revenue: (sale._sum.quantity || 0) * (product?.normalPrice || 0),
+          isFeatured: product?.isFeatured || false
         };
       })
     );
 
-    // Calculate growth compared to previous period (you might want to adjust this logic)
+    // Calculate growth compared to previous period
     const previousPeriodProducts = await prisma.product.count({
       where: {
         createdAt: {
@@ -216,6 +221,8 @@ class ProductService {
         outOfStock: outOfStockProducts,
         lowStock: lowStockProducts,
         inStock: inStockProducts,
+        featuredProducts,
+        comboProducts,
         totalInventoryValue: parseFloat(totalInventoryValue.toFixed(2)),
         averagePrice: parseFloat(averagePrice.toFixed(2)),
         averageRating: parseFloat(averageRating.toFixed(1)),
@@ -223,70 +230,185 @@ class ProductService {
         growthPercentage: parseFloat(growthPercentage.toFixed(1))
       },
       categoryStats,
-      topSellingProducts: topSellingProducts.slice(0, 5), // Top 5 products
+      topSellingProducts: topSellingProducts.slice(0, 5),
       alerts: {
         outOfStockAlerts: outOfStockProducts,
         lowStockAlerts: lowStockProducts,
+        featuredProducts: featuredProducts,
         needsAttention: outOfStockProducts + lowStockProducts
       }
     };
   }
 
-async updateProduct(id, updateData) {
-  // First verify the product exists
-  const existingProduct = await this.getProductById(id);
-  if (!existingProduct) {
-    throw new Error(`Product with ID ${id} not found`);
-  }
+  async getFeaturedProducts({ page = 1, limit = 8 } = {}) {
+    const skip = (page - 1) * limit;
+    
+    const where = {
+      status: true,
+      isFeatured: true // Use the isFeatured field
+    };
 
-  // Clean the update data
-  const validFields = [
-    'name', 'description', 'weight', 'isCombo', 'normalPrice', 'offerPrice',
-    'stock', 'status', 'categoryId', 'benefits', 'ingredients', 'tags',
-    'images', 'imagePublicIds'
-  ];
-
-  const cleanedData = {};
-  
-  for (const key of validFields) {
-    if (updateData[key] !== undefined && updateData[key] !== null) {
-      cleanedData[key] = updateData[key];
-    }
-  }
-
-  // Ensure arrays are properly formatted
-  const arrayFields = ['benefits', 'ingredients', 'tags', 'images', 'imagePublicIds'];
-  arrayFields.forEach(field => {
-    if (cleanedData[field] && !Array.isArray(cleanedData[field])) {
-      cleanedData[field] = [cleanedData[field]];
-    }
-  });
-
-  console.log('🔄 Updating product with data:', {
-    id,
-    fields: Object.keys(cleanedData),
-    imagesCount: cleanedData.images?.length
-  });
-
-  return await prisma.product.update({
-    where: { id },
-    data: cleanedData,
-    include: {
-      category: true,
-      ratings: {
-        where: { isApproved: true },
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
         include: {
-          user: {
+          category: true,
+          ratings: {
+            where: { isApproved: true },
             select: {
-              name: true,
-              email: true
+              rating: true
+            }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy: { 
+          // You can change this to prioritize certain products
+          createdAt: 'desc' 
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getComboProducts({ page = 1, limit = 6 } = {}) {
+    const skip = (page - 1) * limit;
+    
+    const where = {
+      status: true,
+      isCombo: true
+    };
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          ratings: {
+            where: { isApproved: true },
+            select: {
+              rating: true
+            }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getProductsByTags({ tags, page = 1, limit = 10 } = {}) {
+    const skip = (page - 1) * limit;
+    
+    const where = {
+      status: true,
+      tags: {
+        hasSome: Array.isArray(tags) ? tags : [tags]
+      }
+    };
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          ratings: {
+            where: { isApproved: true },
+            select: {
+              rating: true
+            }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async updateProduct(id, updateData) {
+    // First verify the product exists
+    const existingProduct = await this.getProductById(id);
+    if (!existingProduct) {
+      throw new Error(`Product with ID ${id} not found`);
+    }
+
+    // Clean the update data
+    const validFields = [
+      'name', 'description', 'weight', 'isCombo', 'isFeatured', 'normalPrice', 'offerPrice',
+      'stock', 'status', 'categoryId', 'benefits', 'ingredients', 'tags',
+      'images', 'imagePublicIds'
+    ];
+
+    const cleanedData = {};
+    
+    for (const key of validFields) {
+      if (updateData[key] !== undefined && updateData[key] !== null) {
+        cleanedData[key] = updateData[key];
+      }
+    }
+
+    // Ensure arrays are properly formatted
+    const arrayFields = ['benefits', 'ingredients', 'tags', 'images', 'imagePublicIds'];
+    arrayFields.forEach(field => {
+      if (cleanedData[field] && !Array.isArray(cleanedData[field])) {
+        cleanedData[field] = [cleanedData[field]];
+      }
+    });
+
+
+    return await prisma.product.update({
+      where: { id },
+      data: cleanedData,
+      include: {
+        category: true,
+        ratings: {
+          where: { isApproved: true },
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
             }
           }
         }
       }
-    }
-  });
-}
+    });
+  }
 
   async deleteProduct(id) {
     return await prisma.product.delete({
@@ -313,7 +435,7 @@ async updateProduct(id, updateData) {
     });
   }
 
-    async getFilteredProductsByCategory(filters) {
+  async getFilteredProductsByCategory(filters) {
     const {
       categoryId,
       minPrice,
@@ -331,7 +453,7 @@ async updateProduct(id, updateData) {
     // Build where clause
     const where = {
       categoryId,
-      status: true // Only active products
+      status: true
     };
 
     // Price filter
@@ -360,7 +482,6 @@ async updateProduct(id, updateData) {
       ];
     }
 
-    console.log('🏷️ Building query with where:', JSON.stringify(where, null, 2));
 
     // Get products with ratings for filtering
     const products = await prisma.product.findMany({
@@ -379,9 +500,8 @@ async updateProduct(id, updateData) {
       take: limit
     });
 
-    console.log(`📦 Found ${products.length} products before rating filter`);
 
-    // Apply rating filter in memory (since Prisma doesn't easily support array contains with computed values)
+    // Apply rating filter in memory
     let filteredProducts = products;
 
     if (ratings.length > 0) {
@@ -394,7 +514,6 @@ async updateProduct(id, updateData) {
       });
     }
 
-    console.log(`⭐ After rating filter: ${filteredProducts.length} products`);
 
     // Apply sorting
     const sortedProducts = this.applySorting(filteredProducts, sortBy);
@@ -451,10 +570,117 @@ async updateProduct(id, updateData) {
           return ratingB - ratingA;
         });
 
+      case 'featured':
+        return products.sort((a, b) => {
+          // Featured products first, then by creation date
+          if (a.isFeatured && !b.isFeatured) return -1;
+          if (!a.isFeatured && b.isFeatured) return 1;
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
       case 'name':
       default:
         return products.sort((a, b) => a.name.localeCompare(b.name));
     }
+  }
+
+  // Additional method to toggle featured status
+  async toggleFeatured(id, isFeatured) {
+    return await prisma.product.update({
+      where: { id },
+      data: { isFeatured },
+      include: {
+        category: true,
+        ratings: {
+          where: { isApproved: true },
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Method to get best selling products
+  async getBestSellingProducts({ page = 1, limit = 8 } = {}) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const bestSelling = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          status: 'DELIVERED',
+          createdAt: {
+            gte: thirtyDaysAgo
+          }
+        }
+      },
+      _sum: {
+        quantity: true
+      },
+      orderBy: {
+        _sum: {
+          quantity: 'desc'
+        }
+      },
+      take: limit,
+      skip: (page - 1) * limit
+    });
+
+    // Get product details
+    const productIds = bestSelling.map(item => item.productId);
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        status: true
+      },
+      include: {
+        category: true,
+        ratings: {
+          where: { isApproved: true },
+          select: {
+            rating: true
+          }
+        }
+      }
+    });
+
+    // Map sales data to products and maintain order
+    const productsWithSales = bestSelling.map(sale => {
+      const product = products.find(p => p.id === sale.productId);
+      return product ? {
+        ...product,
+        salesCount: sale._sum.quantity || 0
+      } : null;
+    }).filter(Boolean);
+
+    const total = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          status: 'DELIVERED',
+          createdAt: {
+            gte: thirtyDaysAgo
+          }
+        }
+      }
+    });
+
+    return {
+      products: productsWithSales,
+      pagination: {
+        page,
+        limit,
+        total: total.length,
+        pages: Math.ceil(total.length / limit)
+      }
+    };
   }
 
 }

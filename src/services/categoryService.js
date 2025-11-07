@@ -76,14 +76,11 @@ async getCategoryStats() {
       }
     });
 
-    console.log('Categories with products:', categoriesWithProducts.length);
-
     // Calculate total products across all categories
     const totalProducts = categoriesWithProducts.reduce((sum, category) => {
       return sum + category.products.length;
     }, 0);
 
-    console.log('Total products:', totalProducts);
 
     // Calculate average products per category
     const averageProducts = totalCategories > 0 ? (totalProducts / totalCategories).toFixed(1) : 0;
@@ -99,7 +96,6 @@ async getCategoryStats() {
       .sort((a, b) => b.productCount - a.productCount)
       .slice(0, 5);
 
-    console.log('Top categories:', topCategories);
 
     // Get recent categories (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -113,7 +109,6 @@ async getCategoryStats() {
       }
     });
 
-    console.log('Recent categories:', recentCategories);
 
     const result = {
       totalCategories,
@@ -127,7 +122,6 @@ async getCategoryStats() {
       inactivePercentage: totalCategories > 0 ? parseFloat(((inactiveCategories / totalCategories) * 100).toFixed(1)) : 0
     };
 
-    console.log('Final stats result:', result);
     return result;
 
   } catch (error) {

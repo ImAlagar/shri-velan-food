@@ -1,3 +1,4 @@
+// controllers/ratingController.js - UPDATED
 import { ratingService } from '../services/index.js';
 import { asyncHandler } from '../utils/helpers.js';
 
@@ -35,6 +36,34 @@ export const getProductRatings = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: ratings
+  });
+});
+
+// NEW: Get user's rating for a product
+export const getUserProductRating = asyncHandler(async (req, res) => {
+  const { userId, productId } = req.params;
+  
+  // Ensure user can only access their own ratings
+  if (req.user.id !== userId && req.user.role !== 'ADMIN') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
+  const rating = await ratingService.getUserProductRating(userId, productId);
+  res.status(200).json({
+    success: true,
+    data: rating
+  });
+});
+
+// NEW: Get product rating statistics
+export const getProductRatingStats = asyncHandler(async (req, res) => {
+  const stats = await ratingService.getProductRatingStats(req.params.productId);
+  res.status(200).json({
+    success: true,
+    data: stats
   });
 });
 

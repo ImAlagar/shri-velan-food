@@ -36,9 +36,6 @@ export const getOrderTracking = asyncHandler(async (req, res) => {
 export const addTrackingEvent = asyncHandler(async (req, res) => {
   const orderId = req.params.id;
   const eventData = req.body;
-
-  console.log('Adding tracking event for order:', orderId);
-
   if (!orderId) {
     return res.status(400).json({
       success: false,

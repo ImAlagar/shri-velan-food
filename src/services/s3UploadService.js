@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { s3Client, S3_BUCKET_NAME } from '../config/s3.js';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../utils/logger.js';
 
 class S3UploadService {
   constructor() {
@@ -176,7 +177,7 @@ class S3UploadService {
     try {
       // For S3, we don't need to move files like Cloudinary
       // Images are already uploaded to correct location
-      console.log(`Images organized for product ${productId}`);
+      logger.log(`Images organized for product ${productId}`);
     } catch (error) {
       console.error('Image organization failed:', error);
       // Don't throw error as this is non-critical

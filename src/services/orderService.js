@@ -120,7 +120,6 @@ class OrderService {
 
   async verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature) {
     try {
-      console.log('Verifying payment:', { razorpayOrderId, razorpayPaymentId });
       
       if (!razorpayPaymentId) {
         throw new Error('Payment ID is required');
@@ -131,13 +130,7 @@ class OrderService {
       }
 
       const payment = await razorpay.payments.fetch(razorpayPaymentId);
-      
-      console.log('Payment details:', {
-        paymentId: payment.id,
-        orderId: payment.order_id,
-        status: payment.status,
-        amount: payment.amount
-      });
+
 
       if (payment.order_id !== razorpayOrderId) {
         throw new Error('Payment does not match order');
@@ -241,11 +234,7 @@ class OrderService {
       orderInfo,
     } = paymentData;
 
-    console.log('Creating order after payment:', {
-      razorpayOrderId,
-      razorpayPaymentId,
-      orderInfoKeys: Object.keys(orderInfo)
-    });
+
 
     // Verify payment with Razorpay
     const payment = await this.verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature);
@@ -560,7 +549,6 @@ async getOrderById(id) {
     throw new Error('Order ID is required');
   }
 
-  console.log('Service - Getting order by ID:', id); // Debug log
 
   return await prisma.order.findUnique({
     where: { id },

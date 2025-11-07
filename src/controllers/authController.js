@@ -1,3 +1,4 @@
+// controllers/authController.js
 import { authService } from '../services/index.js';
 import { asyncHandler } from '../utils/helpers.js';
 
@@ -37,29 +38,64 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     });
   }
 
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide a valid email address'
+    });
+  }
+
   const result = await authService.forgotPassword(email);
   
   res.status(200).json({
-    success: true,
+    success: result.success,
     message: result.message
   });
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
-  const { token, password } = req.body;
+  const { token, userId, password } = req.body;
 
-  if (!token || !password) {
+  if (!token || !userId || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Token and password are required'
+      message: 'Token, user ID, and password are required'
     });
   }
 
-  const result = await authService.resetPassword(token, password);
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long'
+    });
+  }
+
+  const result = await authService.resetPassword(token, userId, password);
   
   res.status(200).json({
-    success: true,
+    success: result.success,
     message: result.message
+  });
+});
+
+export const validateResetToken = asyncHandler(async (req, res) => {
+  const { token, userId } = req.query;
+
+  if (!token || !userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Token and user ID are required'
+    });
+  }
+
+  const result = await authService.validateResetToken(token, userId);
+  
+  res.status(200).json({
+    success: result.valid,
+    message: result.message,
+    data: result.user || null
   });
 });
 

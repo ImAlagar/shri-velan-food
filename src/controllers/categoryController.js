@@ -61,9 +61,7 @@ export const getCategory = asyncHandler(async (req, res) => {
 
 export const getCategoryStats = asyncHandler(async (req, res) => {
   try {
-    console.log('Fetching category stats...');
     const stats = await categoryService.getCategoryStats();
-    console.log('Stats fetched:', stats);
     
     res.status(200).json({
       success: true,

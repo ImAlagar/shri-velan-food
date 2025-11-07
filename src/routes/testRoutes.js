@@ -7,9 +7,7 @@ const router = express.Router();
 router.post('/test-whatsapp', async (req, res) => {
   try {
     const { phone, message } = req.body;
-    
-    console.log('Testing WhatsApp with:', { phone, message });
-    
+        
     const result = await whatsappService.sendMessage(phone, message || 'Test message from WhatsApp service');
     
     res.json({

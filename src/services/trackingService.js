@@ -97,9 +97,6 @@ class TrackingService {
     async addTrackingEvent(orderId, eventData) {
     const { status, description, location } = eventData;
 
-    console.log('Service - Adding tracking event for order:', orderId); // Debug log
-    console.log('Service - Event data:', { status, description, location }); // Debug log
-
     // Validate orderId exists
     if (!orderId) {
         throw new Error('Order ID is required for tracking event');
@@ -123,7 +120,6 @@ class TrackingService {
         }
     });
 
-    console.log('Service - Tracking event created:', trackingEvent.id); // Debug log
 
     // Update order status based on tracking event
     if (status === 'delivered') {
