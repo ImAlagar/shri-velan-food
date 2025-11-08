@@ -276,7 +276,7 @@ Shri Velan Organic Foods Team
             <div class="footer">
                 <p><strong>Shri Velan Organic Foods</strong></p>
                 <p>Nourishing Lives Naturally</p>
-                <p>Email: support@${domain} | Phone: +91-XXXXX-XXXXX</p>
+                <p>Email: support@${domain} | Phone: +91 98765 43210</p>
                 <p>
                     <a href="${frontendUrl}/preferences" style="color: #666666; text-decoration: none;">Update Preferences</a> | 
                     <a href="${frontendUrl}/unsubscribe" style="color: #666666; text-decoration: none;">Unsubscribe</a>
@@ -316,7 +316,7 @@ Shri Velan Organic Foods Team
 
     Need help? Contact us:
     Email: support@${domain}
-    Phone: +91-XXXXX-XXXXX
+    Phone: +91 98765 43210
 
     Update your preferences: ${frontendUrl}/preferences
     Unsubscribe: ${frontendUrl}/unsubscribe
@@ -553,6 +553,419 @@ Shri Velan Organic Foods
 Nourishing Lives Naturally
       `.trim()
     };
-  }
+  },
+
+   orderConfirmationCustomer: (orderData) => {
+    const domain = process.env.DOMAIN_NAME || 'shrivelanorganicfoods.com';
+    const supportEmail = process.env.SUPPORT_EMAIL || `support@${domain}`;
+    const orderDate = new Date(orderData.createdAt).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return {
+      subject: `Order Confirmed - #${orderData.orderNumber} - Shri Velan Organic Foods`,
+      html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - Shri Velan Organic Foods</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: #f6f6f6; padding: 20px; }
+        .container { max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .header { background: linear(135deg, #2d5e2d 0%, #3a7c3a 100%); padding: 30px 20px; text-align: center; color: #ffffff; }
+        .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .content { padding: 30px; }
+        .success-badge { background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #28a745; }
+        .order-summary { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .order-items { margin: 20px 0; }
+        .order-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e9ecef; }
+        .order-item:last-child { border-bottom: none; }
+        .item-details { flex: 2; }
+        .item-price { flex: 1; text-align: right; }
+        .amount-breakdown { background: #e8f5e8; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .breakdown-row { display: flex; justify-content: space-between; padding: 8px 0; }
+        .breakdown-total { border-top: 2px solid #2d5e2d; font-weight: bold; font-size: 18px; }
+        .shipping-info, .payment-info { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; border-top: 1px solid #e9ecef; }
+        .status-badge { display: inline-block; padding: 4px 12px; background: #28a745; color: white; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        @media (max-width: 600px) {
+            .container { border-radius: 0; }
+            .content { padding: 20px; }
+            .order-item { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Order Confirmed!</h1>
+            <p>Thank you for your purchase</p>
+        </div>
+        
+        <div class="content">
+            <div class="success-badge">
+                <strong>Order Confirmed:</strong> Your order #${orderData.orderNumber} has been successfully placed.
+            </div>
+            
+            <p>Hello <strong>${orderData.name}</strong>,</p>
+            <p>Thank you for choosing Shri Velan Organic Foods! We're preparing your order and will notify you once it's shipped.</p>
+            
+            <div class="order-summary">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">📦 Order Summary</h3>
+                <p><strong>Order Number:</strong> ${orderData.orderNumber}</p>
+                <p><strong>Order Date:</strong> ${orderDate}</p>
+                <p><strong>Status:</strong> <span class="status-badge">${orderData.status}</span></p>
+            </div>
+
+            <div class="order-items">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">🛒 Order Items</h3>
+                ${orderData.orderItems.map(item => `
+                <div class="order-item">
+                    <div class="item-details">
+                        <strong>${item.product.name}</strong>
+                        <br>
+                        <small>Quantity: ${item.quantity} × ₹${item.price}</small>
+                    </div>
+                    <div class="item-price">
+                        ₹${(item.quantity * item.price).toFixed(2)}
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+
+            <div class="amount-breakdown">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">💰 Amount Breakdown</h3>
+                <div class="breakdown-row">
+                    <span>Subtotal:</span>
+                    <span>₹${orderData.subtotal.toFixed(2)}</span>
+                </div>
+                ${orderData.discount > 0 ? `
+                <div class="breakdown-row" style="color: #28a745;">
+                    <span>Discount:</span>
+                    <span>-₹${orderData.discount.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                <div class="breakdown-row">
+                    <span>Shipping:</span>
+                    <span>₹${orderData.shippingCost.toFixed(2)}</span>
+                </div>
+                <div class="breakdown-row breakdown-total">
+                    <span>Total Amount:</span>
+                    <span>₹${orderData.totalAmount.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="shipping-info">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">🏠 Shipping Address</h3>
+                <p>${orderData.name}<br>
+                ${orderData.address}<br>
+                ${orderData.city}, ${orderData.state} - ${orderData.pincode}<br>
+                📞 ${orderData.phone}<br>
+                ✉️ ${orderData.email}</p>
+            </div>
+
+            <div class="payment-info">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">💳 Payment Information</h3>
+                <p><strong>Payment Method:</strong> ${orderData.paymentMethod}</p>
+                <p><strong>Payment Status:</strong> <span class="status-badge">${orderData.paymentStatus}</span></p>
+            </div>
+
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h4 style="color: #1565c0; margin-bottom: 10px;">📞 Need Help?</h4>
+                <p style="margin: 0;">If you have any questions about your order, contact our support team:</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:${supportEmail}" style="color: #1565c0;">${supportEmail}</a></p>
+                <p style="margin: 0;"><strong>Phone:</strong> +91 98765 43210</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Shri Velan Organic Foods</strong></p>
+            <p>Nourishing Lives Naturally</p>
+            <p style="margin-top: 15px; font-size: 11px; color: #999;">
+                This is an automated order confirmation email. Please do not reply to this message.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+      `,
+      text: `
+ORDER CONFIRMED - Shri Velan Organic Foods
+
+Hello ${orderData.name},
+
+Thank you for your order! We're excited to let you know that we've received your order #${orderData.orderNumber} and it is now being processed.
+
+ORDER SUMMARY:
+--------------
+Order Number: ${orderData.orderNumber}
+Order Date: ${orderDate}
+Status: ${orderData.status}
+
+ORDER ITEMS:
+------------
+${orderData.orderItems.map(item => 
+  `• ${item.product.name} - ${item.quantity} × ₹${item.price} = ₹${(item.quantity * item.price).toFixed(2)}`
+).join('\n')}
+
+AMOUNT BREAKDOWN:
+-----------------
+Subtotal: ₹${orderData.subtotal.toFixed(2)}
+${orderData.discount > 0 ? `Discount: -₹${orderData.discount.toFixed(2)}\n` : ''}Shipping: ₹${orderData.shippingCost.toFixed(2)}
+Total: ₹${orderData.totalAmount.toFixed(2)}
+
+SHIPPING ADDRESS:
+-----------------
+${orderData.name}
+${orderData.address}
+${orderData.city}, ${orderData.state} - ${orderData.pincode}
+Phone: ${orderData.phone}
+Email: ${orderData.email}
+
+PAYMENT INFORMATION:
+-------------------
+Payment Method: ${orderData.paymentMethod}
+Payment Status: ${orderData.paymentStatus}
+
+Need help? Contact our support team:
+Email: ${supportEmail}
+Phone: +91 98765 43210
+
+
+Thank you for choosing Shri Velan Organic Foods!
+
+--
+Shri Velan Organic Foods
+Nourishing Lives Naturally
+      `.trim()
+    };
+  },
+
+orderConfirmationAdmin: (orderData) => {
+  const orderDate = new Date(orderData.createdAt).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const domain = process.env.DOMAIN_NAME || 'shrivelanorganicfoods.com';
+  const adminUrl = process.env.ADMIN_URL || `https://admin.${domain}`;
+
+  return {
+    // ✅ Fixed subject - removed emoji and excessive symbols
+    subject: `New Order Notification - Order ${orderData.orderNumber} - ${orderData.totalAmount.toFixed(2)} INR`,
+    
+    html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Order Notification - Shri Velan Organic Foods</title>
+    <style>
+        /* Reset and basic styles */
+        body { font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f6f6f6; }
+        .container { max-width: 700px; margin: 0 auto; background: #ffffff; }
+        .header { background: #2d5e2d; padding: 25px 20px; text-align: center; color: #ffffff; }
+        .header h1 { font-size: 22px; margin: 0 0 10px 0; font-weight: bold; }
+        .content { padding: 25px; }
+        .footer { background: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
+        
+        /* Content styles */
+        .alert-section { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .order-overview { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 4px; }
+        .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
+        .overview-item { background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #2d5e2d; }
+        .order-items { margin: 20px 0; }
+        .order-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e9ecef; }
+        .amount-summary { background: #e8f5e8; padding: 20px; margin: 20px 0; border-radius: 4px; }
+        .summary-row { display: flex; justify-content: space-between; padding: 8px 0; }
+        .summary-total { border-top: 2px solid #2d5e2d; font-weight: bold; font-size: 16px; }
+        .customer-info { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 4px; }
+        .action-buttons { margin-top: 25px; text-align: center; }
+        .btn { display: inline-block; padding: 10px 20px; margin: 0 8px; background: #2d5e2d; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        
+        /* Mobile responsive */
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .content { padding: 20px !important; }
+            .overview-grid { grid-template-columns: 1fr; }
+            .btn { display: block; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>New Order Received</h1>
+            <p>Order ${orderData.orderNumber} - Requires Processing</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <div class="alert-section">
+                <strong>New Order Alert:</strong> A new order has been placed and requires processing.
+            </div>
+
+            <div class="order-overview">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">Order Overview</h3>
+                <div class="overview-grid">
+                    <div class="overview-item">
+                        <strong>Order Number</strong><br>
+                        ${orderData.orderNumber}
+                    </div>
+                    <div class="overview-item">
+                        <strong>Order Date</strong><br>
+                        ${orderDate}
+                    </div>
+                    <div class="overview-item">
+                        <strong>Total Amount</strong><br>
+                        ₹${orderData.totalAmount.toFixed(2)}
+                    </div>
+                    <div class="overview-item">
+                        <strong>Payment Method</strong><br>
+                        ${orderData.paymentMethod}
+                    </div>
+                </div>
+            </div>
+
+            <div class="customer-info">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">Customer Information</h3>
+                <p><strong>Name:</strong> ${orderData.name}</p>
+                <p><strong>Email:</strong> <a href="mailto:${orderData.email}">${orderData.email}</a></p>
+                <p><strong>Phone:</strong> <a href="tel:${orderData.phone}">${orderData.phone}</a></p>
+                <p><strong>Address:</strong> ${orderData.address}, ${orderData.city}, ${orderData.state} - ${orderData.pincode}</p>
+            </div>
+
+            <div class="order-items">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">Order Items</h3>
+                ${orderData.orderItems.map(item => `
+                <div class="order-item">
+                    <div style="flex: 2;">
+                        <strong>${item.product.name}</strong>
+                        <br>
+                        <small>Quantity: ${item.quantity} × ₹${item.price}</small>
+                    </div>
+                    <div style="flex: 1; text-align: right;">
+                        ₹${(item.quantity * item.price).toFixed(2)}
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+
+            <div class="amount-summary">
+                <h3 style="color: #2d5e2d; margin-bottom: 15px;">Order Summary</h3>
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span>₹${orderData.subtotal.toFixed(2)}</span>
+                </div>
+                ${orderData.discount > 0 ? `
+                <div class="summary-row">
+                    <span>Discount:</span>
+                    <span style="color: #28a745;">-₹${orderData.discount.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                <div class="summary-row">
+                    <span>Shipping:</span>
+                    <span>₹${orderData.shippingCost.toFixed(2)}</span>
+                </div>
+                <div class="summary-row summary-total">
+                    <span>Grand Total:</span>
+                    <span>₹${orderData.totalAmount.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <a href="${adminUrl}/orders/${orderData.id}" class="btn">
+                    View Order in Admin Panel
+                </a>
+                <a href="mailto:${orderData.email}?subject=Regarding Order ${orderData.orderNumber}" class="btn" style="background: #6c757d;">
+                    Contact Customer
+                </a>
+            </div>
+
+            <div style="margin-top: 25px; padding: 15px; background: #e9ecef; border-radius: 4px;">
+                <h4 style="margin: 0 0 10px 0; color: #495057;">Next Steps:</h4>
+                <ol style="margin: 0; padding-left: 20px;">
+                    <li>Review order details</li>
+                    <li>Prepare items for shipping</li>
+                    <li>Update order status when shipped</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Shri Velan Organic Foods - Order Management System</strong></p>
+            <p>This is an automated notification. Please process this order promptly.</p>
+            <p style="margin-top: 10px; font-size: 11px; color: #999;">
+                If you believe you received this email in error, please contact system administration.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+    `,
+    
+    // ✅ Proper text version
+    text: `
+NEW ORDER NOTIFICATION - Shri Velan Organic Foods
+
+A new order has been placed and requires processing.
+
+ORDER OVERVIEW:
+---------------
+Order Number: ${orderData.orderNumber}
+Order Date: ${orderDate}
+Total Amount: ₹${orderData.totalAmount.toFixed(2)}
+Payment Method: ${orderData.paymentMethod}
+Payment Status: ${orderData.paymentStatus}
+
+CUSTOMER INFORMATION:
+--------------------
+Name: ${orderData.name}
+Email: ${orderData.email}
+Phone: ${orderData.phone}
+Address: ${orderData.address}, ${orderData.city}, ${orderData.state} - ${orderData.pincode}
+
+ORDER ITEMS:
+-----------
+${orderData.orderItems.map(item => 
+  `• ${item.product.name}
+   Quantity: ${item.quantity} × ₹${item.price} = ₹${(item.quantity * item.price).toFixed(2)}`
+).join('\n')}
+
+ORDER SUMMARY:
+--------------
+Subtotal: ₹${orderData.subtotal.toFixed(2)}
+${orderData.discount > 0 ? `Discount: -₹${orderData.discount.toFixed(2)}\n` : ''}Shipping: ₹${orderData.shippingCost.toFixed(2)}
+Grand Total: ₹${orderData.totalAmount.toFixed(2)}
+
+NEXT STEPS:
+-----------
+1. Review order details
+2. Prepare items for shipping
+3. Update order status when shipped
+
+View order in admin panel: ${adminUrl}/orders/${orderData.id}
+
+This is an automated order notification from Shri Velan Organic Foods.
+
+--
+Shri Velan Organic Foods
+Order Management System
+    `.trim()
+  };
+},
   
 };

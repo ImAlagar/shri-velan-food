@@ -24,7 +24,7 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
       orderInfo: result.orderInfo
     },
   });
-});
+  });
 
 export const verifyPaymentAndCreateOrder = asyncHandler(async (req, res) => {
   const {

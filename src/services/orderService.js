@@ -4,6 +4,7 @@ import prisma from '../config/database.js';
 import { generateOrderNumber } from '../utils/helpers.js';
 import shippingService from './shippingService.js';
 import couponService from './couponService.js';
+import emailNotificationService from './emailNotificationService.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -223,6 +224,11 @@ class OrderService {
       return order;
     });
 
+    // ✅ Send order confirmation emails (non-blocking)
+    this.sendOrderEmails(order).catch(error => {
+      console.error('❌ Order emails failed:', error.message);
+    });
+
     return order;
   }
 
@@ -233,8 +239,6 @@ class OrderService {
       razorpaySignature,
       orderInfo,
     } = paymentData;
-
-
 
     // Verify payment with Razorpay
     const payment = await this.verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature);
@@ -323,7 +327,47 @@ class OrderService {
       return order;
     });
 
+    // ✅ Send order confirmation emails (non-blocking)
+    this.sendOrderEmails(order).catch(error => {
+      console.error('❌ Order emails failed:', error.message);
+    });
+
     return order;
+  }
+
+  async sendOrderEmails(order) {
+    try {
+            // Prepare order data for emails
+      const orderEmailData = {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        name: order.name,
+        email: order.email,
+        phone: order.phone,
+        address: order.address,
+        city: order.city,
+        state: order.state,
+        pincode: order.pincode,
+        totalAmount: order.totalAmount,
+        subtotal: order.subtotal,
+        shippingCost: order.shippingCost,
+        discount: order.discount,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        status: order.status,
+        createdAt: order.createdAt,
+        orderItems: order.orderItems,
+        user: order.user
+      };
+
+      // Send emails
+      await emailNotificationService.sendOrderNotifications(orderEmailData);
+      
+      
+    } catch (error) {
+      console.error('❌ Failed to send order emails:', error.message);
+      // Don't throw - order is already created
+    }
   }
 
   async getOrders({ page = 1, limit = 10, status, userId } = {}) {
@@ -544,39 +588,39 @@ class OrderService {
     }
   }
 
-async getOrderById(id) {
-  if (!id) {
-    throw new Error('Order ID is required');
-  }
+  async getOrderById(id) {
+    if (!id) {
+      throw new Error('Order ID is required');
+    }
 
 
-  return await prisma.order.findUnique({
-    where: { id },
-    include: {
-      orderItems: {
-        include: {
-          product: {
-            select: {
-              name: true,
-              images: true,
-              description: true,
+    return await prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                images: true,
+                description: true,
+              },
             },
           },
         },
-      },
-      user: {
-        select: {
-          name: true,
-          email: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
         },
+        coupon: true,
+        trackingHistory: {
+          orderBy: { createdAt: 'desc' }
+        }
       },
-      coupon: true,
-      trackingHistory: {
-        orderBy: { createdAt: 'desc' }
-      }
-    },
-  });
-}
+    });
+  }
 
   async getOrderByRazorpayOrderId(razorpayOrderId) {
     return await prisma.order.findUnique({
@@ -604,7 +648,6 @@ async getOrderById(id) {
     });
   }
 
- 
   async updateOrderStatus(id, status) {
     return await prisma.order.update({
       where: { id },

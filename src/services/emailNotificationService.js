@@ -144,6 +144,70 @@ class EmailNotificationService {
     }
   }
 
+
+    async sendOrderConfirmationCustomer(orderData) {
+    try {
+      const template = emailTemplates.orderConfirmationCustomer(orderData);
+      
+      const result = await emailService.sendEmail({
+        to: orderData.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        from: `"Shri Velan Organic Foods Orders" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Order confirmation email to customer failed:', error.message);
+      // Don't throw error - order should complete even if email fails
+    }
+  }
+
+  async sendOrderConfirmationAdmin(orderData) {
+    try {
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+      
+      if (!adminEmail) {
+        console.warn('⚠️ Admin email not configured, skipping admin notification');
+        return;
+      }
+
+      const template = emailTemplates.orderConfirmationAdmin(orderData);
+      
+      const result = await emailService.sendEmail({
+        to: adminEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        from: `"Shri Velan Organic Foods Orders" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Order notification email to admin failed:', error.message);
+      // Don't throw error - order should complete even if email fails
+    }
+  }
+
+  async sendOrderNotifications(orderData) {
+    try {
+      // Send to customer
+      await this.sendOrderConfirmationCustomer(orderData);
+      
+      // Send to admin
+      await this.sendOrderConfirmationAdmin(orderData);
+      
+      
+    } catch (error) {
+      console.error('❌ Order notifications failed:', error.message);
+      // Continue even if notifications fail
+    }
+  }
+
+
   async sendCustomNotification(to, subject, content) {
     try {
       const result = await emailService.sendEmail({
@@ -159,6 +223,7 @@ class EmailNotificationService {
       throw error;
     }
   }
+
 }
 
 export default new EmailNotificationService();
