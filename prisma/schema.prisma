@@ -56,6 +56,7 @@ model Product {
   offerPrice     Float?
   benefits       String[]
   ingredients    String[]
+  preparingMethods String[]  // ✅ CHANGE TO ARRAY
   stock          Int         @default(0)
   tags           String[]
   status         Boolean     @default(true)

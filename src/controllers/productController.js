@@ -1,7 +1,6 @@
 import { productService, uploadService } from '../services/index.js';
 import s3UploadService from '../services/s3UploadService.js';
 import { asyncHandler } from '../utils/helpers.js';
-import prisma from '../config/database.js';
 
 export const createProduct = asyncHandler(async (req, res) => {
   let imageUrls = [];
@@ -9,19 +8,15 @@ export const createProduct = asyncHandler(async (req, res) => {
   let uploadedImageData = [];
   
   if (req.files && req.files.length > 0) {
-    // Upload images to S3
     uploadedImageData = await s3UploadService.uploadMultipleProductImages(req.files);
     imageUrls = uploadedImageData.map(img => img.url);
     imagePublicIds = uploadedImageData.map(img => img.key);
   }
 
-  // FIX: Handle array fields properly for FormData
   const parseArrayField = (fieldName) => {
     if (Array.isArray(req.body[fieldName])) {
-      // If it's already an array (from FormData multiple entries)
       return req.body[fieldName];
     } else if (typeof req.body[fieldName] === 'string') {
-      // If it's a JSON string
       try {
         return JSON.parse(req.body[fieldName]);
       } catch (error) {
@@ -36,10 +31,11 @@ export const createProduct = asyncHandler(async (req, res) => {
     ...req.body,
     benefits: parseArrayField('benefits'),
     ingredients: parseArrayField('ingredients'),
+    preparingMethods: parseArrayField('preparingMethods'), // ✅ ADD THIS
     tags: parseArrayField('tags'),
     status: req.body.status === 'true',
     isCombo: req.body.isCombo === 'true',
-    isFeatured: req.body.isFeatured === 'true', // Add isFeatured field
+    isFeatured: req.body.isFeatured === 'true',
     normalPrice: parseFloat(req.body.normalPrice),
     offerPrice: req.body.offerPrice ? parseFloat(req.body.offerPrice) : null,
     stock: parseInt(req.body.stock),
@@ -225,7 +221,6 @@ export const toggleFeatured = asyncHandler(async (req, res) => {
 export const updateProduct = asyncHandler(async (req, res) => {
   const productId = req.params.id;
   
-  // Check if product exists first
   const existingProduct = await productService.getProductById(productId);
   if (!existingProduct) {
     return res.status(404).json({
@@ -236,14 +231,12 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   const updateData = { ...req.body };
   
-  // Handle file uploads
+  // Handle file uploads (existing code remains same)
   if (req.files && req.files.length > 0) {
-        // Upload new images to S3
     const newImageData = await s3UploadService.uploadMultipleProductImages(req.files, productId);
     const newImageUrls = newImageData.map(img => img.url);
     const newImagePublicIds = newImageData.map(img => img.key);
     
-    // Handle existing images
     if (req.body.existingImages) {
       try {
         const existingImagesFromRequest = typeof req.body.existingImages === 'string'
@@ -259,17 +252,14 @@ export const updateProduct = asyncHandler(async (req, res) => {
         ];
       } catch (error) {
         console.error('Error parsing existingImages:', error);
-        // Fallback: combine all existing with new
         updateData.images = [...(existingProduct.images || []), ...newImageUrls];
         updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
       }
     } else {
-      // If no existing images specified, keep all existing and add new
       updateData.images = [...(existingProduct.images || []), ...newImageUrls];
       updateData.imagePublicIds = [...(existingProduct.imagePublicIds || []), ...newImagePublicIds];
     }
   } else {
-    // No new files, just handle image reordering
     if (req.body.existingImages) {
       try {
         const existingImagesFromRequest = typeof req.body.existingImages === 'string'
@@ -278,7 +268,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
         
         updateData.images = existingImagesFromRequest;
         
-        // Map existing public IDs to the reordered images
         const imageToPublicIdMap = {};
         existingProduct.images.forEach((img, index) => {
           imageToPublicIdMap[img] = existingProduct.imagePublicIds[index];
@@ -291,7 +280,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
     }
   }
 
-  // Parse array fields
   const parseArrayField = (fieldName) => {
     if (!req.body[fieldName]) return undefined;
     
@@ -308,13 +296,15 @@ export const updateProduct = asyncHandler(async (req, res) => {
     return undefined;
   };
 
-  // Update array fields
+  // ✅ ADD preparingMethods TO ARRAY FIELDS PARSING
   const benefits = parseArrayField('benefits');
   const ingredients = parseArrayField('ingredients');
+  const preparingMethods = parseArrayField('preparingMethods');
   const tags = parseArrayField('tags');
 
   if (benefits) updateData.benefits = benefits;
   if (ingredients) updateData.ingredients = ingredients;
+  if (preparingMethods) updateData.preparingMethods = preparingMethods;
   if (tags) updateData.tags = tags;
   
   // Convert boolean fields
@@ -358,6 +348,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     throw error;
   }
 });
+
 
 export const deleteProduct = asyncHandler(async (req, res) => {
   const productId = req.params.id;

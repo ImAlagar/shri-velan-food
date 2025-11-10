@@ -33,7 +33,8 @@ class ProductService {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } }
+        { tags: { has: search } },
+        { preparingMethods: { has: search } } // ✅ UPDATE SEARCH
       ];
     }
 
@@ -360,16 +361,15 @@ class ProductService {
   }
 
   async updateProduct(id, updateData) {
-    // First verify the product exists
     const existingProduct = await this.getProductById(id);
     if (!existingProduct) {
       throw new Error(`Product with ID ${id} not found`);
     }
 
-    // Clean the update data
+    // ✅ ADD preparingMethods TO VALID FIELDS
     const validFields = [
       'name', 'description', 'weight', 'isCombo', 'isFeatured', 'normalPrice', 'offerPrice',
-      'stock', 'status', 'categoryId', 'benefits', 'ingredients', 'tags',
+      'stock', 'status', 'categoryId', 'benefits', 'ingredients', 'preparingMethods', 'tags',
       'images', 'imagePublicIds'
     ];
 
@@ -381,14 +381,13 @@ class ProductService {
       }
     }
 
-    // Ensure arrays are properly formatted
-    const arrayFields = ['benefits', 'ingredients', 'tags', 'images', 'imagePublicIds'];
+    // ✅ ADD preparingMethods TO ARRAY FIELDS
+    const arrayFields = ['benefits', 'ingredients', 'preparingMethods', 'tags', 'images', 'imagePublicIds'];
     arrayFields.forEach(field => {
       if (cleanedData[field] && !Array.isArray(cleanedData[field])) {
         cleanedData[field] = [cleanedData[field]];
       }
     });
-
 
     return await prisma.product.update({
       where: { id },
@@ -409,7 +408,7 @@ class ProductService {
       }
     });
   }
-
+  
   async deleteProduct(id) {
     return await prisma.product.delete({
       where: { id }
