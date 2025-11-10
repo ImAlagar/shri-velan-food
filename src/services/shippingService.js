@@ -3,40 +3,59 @@ import prisma from '../config/database.js';
 
 class ShippingService {
   
-  async getShippingRate(state, weightInKg) {
-    // Convert state to uppercase for consistent matching
-    const formattedState = state.toUpperCase();
-    
-    const isTamilNadu = formattedState === 'TAMIL NADU' || 
-                        formattedState === 'TAMILNADU' || 
-                        formattedState.includes('TAMIL');
+// services/shippingService.js
+async getShippingRate(state, weightInKg) {
+  // Convert state to uppercase for consistent matching
+  const formattedState = state.toUpperCase();
+  
+  const isTamilNadu = formattedState === 'TAMIL NADU' || 
+                      formattedState === 'TAMILNADU' || 
+                      formattedState.includes('TAMIL');
 
-    // Base rates per kg
-    const tamilNaduRatePerKg = 50;
-    const otherStatesRatePerKg = 100;
+  // Weight-based rate slabs (in KG only)
+  let totalShippingCost;
 
-    // Calculate total shipping cost based on weight
-    let totalShippingCost;
-    if (isTamilNadu) {
-      totalShippingCost = weightInKg * tamilNaduRatePerKg;
+  if (isTamilNadu) {
+    // Tamil Nadu rates - per kg based
+    if (weightInKg <= 1) {
+      totalShippingCost = 50; // ₹50 for up to 1kg
+    } else if (weightInKg <= 2) {
+      totalShippingCost = 100; // ₹100 for 1-2kg
+    } else if (weightInKg <= 3) {
+      totalShippingCost = 150; // ₹150 for 2-3kg
     } else {
-      // Check if we have a custom rate for this state
-      const shippingRate = await prisma.shippingRate.findFirst({
-        where: { 
-          state: formattedState,
-          isActive: true 
-        }
-      });
-
-      if (shippingRate) {
-        totalShippingCost = weightInKg * shippingRate.rate;
-      } else {
-        totalShippingCost = weightInKg * otherStatesRatePerKg;
-      }
+      // ₹50 per kg for weights above 3kg
+      totalShippingCost = weightInKg * 50;
+    }
+  } else {
+    // Other states rates - per kg based
+    if (weightInKg <= 1) {
+      totalShippingCost = 100; // ₹100 for up to 1kg
+    } else if (weightInKg <= 2) {
+      totalShippingCost = 200; // ₹200 for 1-2kg
+    } else if (weightInKg <= 3) {
+      totalShippingCost = 300; // ₹300 for 2-3kg
+    } else {
+      // ₹100 per kg for weights above 3kg
+      totalShippingCost = weightInKg * 100;
     }
 
-    return Math.round(totalShippingCost); // Round to nearest rupee
+    // Check if we have a custom rate for this state in database
+    const shippingRate = await prisma.shippingRate.findFirst({
+      where: { 
+        state: formattedState,
+        isActive: true 
+      }
+    });
+
+    if (shippingRate) {
+      // For custom states, use per kg rate for all weights
+      totalShippingCost = weightInKg * shippingRate.rate;
+    }
   }
+
+  return Math.round(totalShippingCost);
+}
 
   async createShippingRate(data) {
     return await prisma.shippingRate.create({
