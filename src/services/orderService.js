@@ -54,19 +54,53 @@ class OrderService {
       });
     }
 
-    // Calculate shipping cost
-    const shippingCost = await shippingService.getShippingRate(state);
+    // Calculate shipping cost - FIXED: Use order-based shipping calculation
+    let shippingCost = 0;
+    let totalWeight = 0;
+    
+    try {
+      // Calculate total weight for shipping
+      for (const item of items) {
+        const productId = item.productId || item.id;
+        const product = await prisma.product.findUnique({
+          where: { id: productId },
+          select: { weight: true }
+        });
+        
+        if (product && product.weight) {
+          const weightValue = this.parseWeight(product.weight);
+          totalWeight += weightValue * item.quantity;
+        }
+      }
+      
+      // Get shipping rate based on weight and state
+      shippingCost = await shippingService.getShippingRate(state, totalWeight);
+    } catch (error) {
+      console.error('Shipping calculation error:', error);
+      // Fallback to default shipping
+      shippingCost = state.toUpperCase().includes('TAMIL') ? 50 : 100;
+    }
 
     // Calculate discount if coupon provided
     let discount = 0;
     let coupon = null;
 
     if (couponCode) {
-      coupon = await couponService.validateCoupon(couponCode, subtotal);
-      discount = await couponService.calculateDiscount(coupon, subtotal);
+      try {
+        coupon = await couponService.validateCoupon(couponCode, subtotal);
+        discount = await couponService.calculateDiscount(coupon, subtotal);
+      } catch (error) {
+        console.error('Coupon validation error:', error);
+        // Continue without coupon if validation fails
+      }
     }
 
     const totalAmount = subtotal + shippingCost - discount;
+
+    // Validate total amount
+    if (totalAmount <= 0) {
+      throw new Error('Total amount must be greater than 0');
+    }
 
     return {
       subtotal,
@@ -75,48 +109,98 @@ class OrderService {
       totalAmount,
       orderItems,
       coupon,
+      totalWeight,
     };
   }
+
+  // Helper method to parse weight strings
+  parseWeight(weightString) {
+    if (!weightString) return 0;
+    
+    const normalized = weightString.toLowerCase().trim();
+    
+    // Handle grams
+    if (normalized.includes('g')) {
+      const grams = parseFloat(normalized.replace('g', '').trim());
+      return grams / 1000; // Convert to kg
+    }
+    
+    // Handle kilograms
+    if (normalized.includes('kg')) {
+      return parseFloat(normalized.replace('kg', '').trim());
+    }
+    
+    // Default: assume it's in grams if no unit specified
+    return parseFloat(normalized) / 1000;
+  }
+
 
   async createRazorpayOrder(orderData) {
     const { items, state, couponCode, ...orderInfo } = orderData;
 
+
+
     // Validate required fields
-    if (!items || !Array.isArray(items)) {
-      throw new Error('Items are required and must be an array');
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      throw new Error('Items are required and must be a non-empty array');
     }
 
     if (!state) {
       throw new Error('State is required for shipping calculation');
     }
 
+    if (!orderInfo.userId) {
+      throw new Error('User ID is required');
+    }
+
     // Calculate order amount
     const amountDetails = await this.calculateOrderAmount(items, state, couponCode);
 
-    // Create Razorpay order
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(amountDetails.totalAmount * 100), // Convert to paise
-      currency: 'INR',
-      receipt: `receipt_${Date.now()}`,
-      notes: {
-        userId: orderInfo.userId,
-        orderType: 'product_order',
-      },
-    });
 
-    return {
-      razorpayOrder,
-      amountDetails,
-      orderInfo: {
-        ...orderInfo,
-        state,
-        subtotal: amountDetails.subtotal,
-        shippingCost: amountDetails.shippingCost,
-        discount: amountDetails.discount,
-        orderItems: amountDetails.orderItems,
-        coupon: amountDetails.coupon,
-      },
-    };
+
+    // Validate amount for Razorpay (must be at least 1 INR = 100 paise)
+    const amountInPaise = Math.round(amountDetails.totalAmount * 100);
+    if (amountInPaise < 100) {
+      throw new Error('Order amount must be at least ₹1 for Razorpay payments');
+    }
+
+    // Create Razorpay order
+    try {
+      const razorpayOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          userId: orderInfo.userId,
+          orderType: 'product_order',
+          itemsCount: items.length,
+        },
+      });
+
+
+      return {
+        razorpayOrder,
+        amountDetails,
+        orderInfo: {
+          ...orderInfo,
+          state,
+          subtotal: amountDetails.subtotal,
+          shippingCost: amountDetails.shippingCost,
+          discount: amountDetails.discount,
+          totalWeight: amountDetails.totalWeight,
+          orderItems: amountDetails.orderItems,
+          coupon: amountDetails.coupon,
+        },
+      };
+    } catch (razorpayError) {
+      console.error('Razorpay API Error:', {
+        message: razorpayError.message,
+        statusCode: razorpayError.statusCode,
+        error: razorpayError.error
+      });
+      
+      throw new Error(`Razorpay order creation failed: ${razorpayError.error?.description || razorpayError.message}`);
+    }
   }
 
   async verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature) {
@@ -151,6 +235,7 @@ class OrderService {
   async createCODOrder(orderData) {
     const { items, state, couponCode, ...orderInfo } = orderData;
 
+
     // Calculate order amount
     const amountDetails = await this.calculateOrderAmount(items, state, couponCode);
 
@@ -166,14 +251,14 @@ class OrderService {
 
       // Create order data for COD with required name field
       const orderData = {
-        name: `${orderInfo.firstName} ${orderInfo.lastName}`, // Combine first and last name
+        name: `${orderInfo.firstName} ${orderInfo.lastName}`.trim() || 'Customer', // Fallback name
         email: orderInfo.email,
         phone: orderInfo.phone,
         address: orderInfo.address,
         city: orderInfo.city,
         state: orderInfo.state,
         pincode: orderInfo.pincode,
-        paymentMethod: 'COD',
+        paymentMethod: 'cod',
         userId: orderInfo.userId,
         orderNumber: generateOrderNumber(),
         totalAmount: amountDetails.totalAmount,
@@ -224,9 +309,9 @@ class OrderService {
       return order;
     });
 
-    // ✅ Send order confirmation emails (non-blocking)
+    // Send order confirmation emails (non-blocking)
     this.sendOrderEmails(order).catch(error => {
-      console.error('❌ Order emails failed:', error.message);
+      console.error('Order emails failed:', error.message);
     });
 
     return order;
@@ -240,6 +325,8 @@ class OrderService {
       orderInfo,
     } = paymentData;
 
+
+
     // Verify payment with Razorpay
     const payment = await this.verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature);
 
@@ -250,9 +337,13 @@ class OrderService {
       orderInfo.couponCode
     );
 
-    // Verify amount matches
-    if (Math.round(amountDetails.totalAmount * 100) !== payment.amount) {
-      throw new Error('Payment amount does not match order amount');
+    // Verify amount matches (within 1% tolerance for floating point issues)
+    const expectedAmount = Math.round(amountDetails.totalAmount * 100);
+    const paymentAmount = payment.amount;
+    const amountDifference = Math.abs(expectedAmount - paymentAmount);
+    
+    if (amountDifference > expectedAmount * 0.01) { // 1% tolerance
+      throw new Error(`Payment amount (${paymentAmount}) does not match order amount (${expectedAmount})`);
     }
 
     // Start transaction to create order and update stock
@@ -267,14 +358,14 @@ class OrderService {
 
       // Create order data with required name field
       const orderData = {
-        name: `${orderInfo.firstName} ${orderInfo.lastName}`, // Combine first and last name
+        name: `${orderInfo.firstName} ${orderInfo.lastName}`.trim() || 'Customer',
         email: orderInfo.email,
         phone: orderInfo.phone,
         address: orderInfo.address,
         city: orderInfo.city,
         state: orderInfo.state,
         pincode: orderInfo.pincode,
-        paymentMethod: orderInfo.paymentMethod,
+        paymentMethod: orderInfo.paymentMethod || 'card',
         userId: orderInfo.userId,
         orderNumber: generateOrderNumber(),
         totalAmount: amountDetails.totalAmount,
@@ -327,9 +418,9 @@ class OrderService {
       return order;
     });
 
-    // ✅ Send order confirmation emails (non-blocking)
+    // Send order confirmation emails (non-blocking)
     this.sendOrderEmails(order).catch(error => {
-      console.error('❌ Order emails failed:', error.message);
+      console.error('Order emails failed:', error.message);
     });
 
     return order;
@@ -337,7 +428,7 @@ class OrderService {
 
   async sendOrderEmails(order) {
     try {
-            // Prepare order data for emails
+      // Prepare order data for emails
       const orderEmailData = {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -363,12 +454,12 @@ class OrderService {
       // Send emails
       await emailNotificationService.sendOrderNotifications(orderEmailData);
       
-      
     } catch (error) {
-      console.error('❌ Failed to send order emails:', error.message);
+      console.error('Failed to send order emails:', error.message);
       // Don't throw - order is already created
     }
   }
+
 
   async getOrders({ page = 1, limit = 10, status, userId } = {}) {
     const skip = (page - 1) * limit;

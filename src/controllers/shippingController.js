@@ -41,12 +41,59 @@ export const deleteShippingRate = asyncHandler(async (req, res) => {
 });
 
 export const calculateShipping = asyncHandler(async (req, res) => {
-  const { state } = req.body;
+  const { state, weightInKg } = req.body;
   
-  const rate = await shippingService.getShippingRate(state);
+  if (!state || weightInKg === undefined) {
+    return res.status(400).json({
+      success: false,
+      message: 'State and weightInKg are required'
+    });
+  }
+
+  if (weightInKg <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Weight must be greater than 0'
+    });
+  }
+  
+  const rate = await shippingService.getShippingRate(state, weightInKg);
   
   res.status(200).json({
     success: true,
-    data: { state, rate },
+    data: { 
+      state, 
+      weightInKg,
+      rate,
+      ratePerKg: state.toUpperCase().includes('TAMIL') ? 50 : 100
+    },
+  });
+});
+
+// New endpoint to calculate shipping for an entire order
+export const calculateOrderShipping = asyncHandler(async (req, res) => {
+  const { state, orderItems } = req.body;
+  
+  if (!state || !orderItems || !Array.isArray(orderItems)) {
+    return res.status(400).json({
+      success: false,
+      message: 'State and orderItems array are required'
+    });
+  }
+
+  // Calculate total weight of the order
+  const totalWeight = await shippingService.calculateOrderWeight(orderItems);
+  
+  // Calculate shipping cost
+  const shippingCost = await shippingService.getShippingRate(state, totalWeight);
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      state,
+      totalWeight: Math.round(totalWeight * 100) / 100, // Round to 2 decimal places
+      shippingCost,
+      items: orderItems.length
+    }
   });
 });

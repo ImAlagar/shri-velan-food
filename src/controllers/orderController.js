@@ -3,28 +3,53 @@ import orderService from '../services/orderService.js';
 import { asyncHandler } from '../utils/helpers.js';
 
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
-  const { amount, currency, receipt, notes, items, state, couponCode } = req.body;
+  const { items, state, couponCode, userId, ...orderInfo } = req.body;
   
-  const result = await orderService.createRazorpayOrder({
-    items,
-    state,
-    couponCode,
-    userId: req.user.id,
-    ...req.body
-  });
 
-  res.status(200).json({
-    success: true,
-    message: 'Razorpay order created successfully',
-    data: {
-      razorpayOrderId: result.razorpayOrder.id,
-      amount: result.razorpayOrder.amount,
-      currency: result.razorpayOrder.currency,
-      orderDetails: result.amountDetails,
-      orderInfo: result.orderInfo
-    },
-  });
-  });
+
+  // Validate required fields
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Items are required and must be a non-empty array'
+    });
+  }
+
+  if (!state) {
+    return res.status(400).json({
+      success: false,
+      message: 'State is required for shipping calculation'
+    });
+  }
+
+  try {
+    const result = await orderService.createRazorpayOrder({
+      items,
+      state,
+      couponCode,
+      userId: req.user.id,
+      ...orderInfo
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Razorpay order created successfully',
+      data: {
+        razorpayOrderId: result.razorpayOrder.id,
+        amount: result.razorpayOrder.amount,
+        currency: result.razorpayOrder.currency,
+        orderDetails: result.amountDetails,
+        orderInfo: result.orderInfo
+      },
+    });
+  } catch (error) {
+    console.error('Create Razorpay order error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to create Razorpay order'
+    });
+  }
+});
 
 export const verifyPaymentAndCreateOrder = asyncHandler(async (req, res) => {
   const {
@@ -35,17 +60,28 @@ export const verifyPaymentAndCreateOrder = asyncHandler(async (req, res) => {
     isCOD = false
   } = req.body;
 
+
+
   // Handle COD orders (no payment verification needed)
   if (isCOD) {
-    const order = await orderService.createCODOrder({
-      ...orderData,
-      userId: req.user.id
-    });
-    return res.status(201).json({
-      success: true,
-      message: 'COD order created successfully',
-      data: { order }
-    });
+    try {
+      const order = await orderService.createCODOrder({
+        ...orderData,
+        userId: req.user.id
+      });
+      
+      return res.status(201).json({
+        success: true,
+        message: 'COD order created successfully',
+        data: { order }
+      });
+    } catch (error) {
+      console.error('COD order creation error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to create COD order'
+      });
+    }
   }
 
   // Handle online payments
@@ -63,23 +99,31 @@ export const verifyPaymentAndCreateOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  const paymentData = {
-    razorpayOrderId: razorpay_order_id,
-    razorpayPaymentId: razorpay_payment_id,
-    razorpaySignature: razorpay_signature,
-    orderInfo: {
-      ...orderData,
-      userId: req.user.id
-    }
-  };
+  try {
+    const paymentData = {
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpaySignature: razorpay_signature,
+      orderInfo: {
+        ...orderData,
+        userId: req.user.id
+      }
+    };
 
-  const order = await orderService.createOrderAfterPayment(paymentData);
-  
-  res.status(201).json({
-    success: true,
-    message: 'Payment verified and order created successfully',
-    data: { order }
-  });
+    const order = await orderService.createOrderAfterPayment(paymentData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Payment verified and order created successfully',
+      data: { order }
+    });
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Payment verification failed'
+    });
+  }
 });
 
 export const getOrders = asyncHandler(async (req, res) => {

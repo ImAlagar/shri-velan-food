@@ -6,13 +6,15 @@ import {
   updateShippingRate,
   deleteShippingRate,
   calculateShipping,
+  calculateOrderShipping
 } from '../controllers/shippingController.js';
 import { auth, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public route
+// Public routes
 router.post('/calculate', calculateShipping);
+router.post('/calculate-order', calculateOrderShipping); // New route
 
 // Admin routes
 router.get('/', auth, authorize('ADMIN'), getShippingRates);
