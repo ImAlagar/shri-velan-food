@@ -16,7 +16,8 @@ import {
   getComboProducts,
   getProductsByTags,
   getBestSellingProducts,
-  toggleFeatured
+  toggleFeatured,
+  globalSearch
 } from '../controllers/productController.js';
 import { auth, authorize } from '../middleware/auth.js';
 import { upload, uploadUpdate } from '../middleware/upload.js';
@@ -32,6 +33,7 @@ router.get('/featured/products', getFeaturedProducts);
 router.get('/combo/products', getComboProducts);
 router.get('/tagged/products', getProductsByTags);
 router.get('/bestselling/products', getBestSellingProducts);
+router.get('/search/global', globalSearch);
 
 // Stats route - Admin only
 router.get('/admin/stats', auth, authorize('ADMIN'), getProductStats);

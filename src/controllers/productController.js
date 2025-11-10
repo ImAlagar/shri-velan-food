@@ -1,3 +1,4 @@
+import prisma from '../config/database.js';
 import { productService, uploadService } from '../services/index.js';
 import s3UploadService from '../services/s3UploadService.js';
 import { asyncHandler } from '../utils/helpers.js';
@@ -520,3 +521,277 @@ export const updateProductImageOrder = asyncHandler(async (req, res) => {
     data: updatedProduct
   });
 });
+
+export const globalSearch = asyncHandler(async (req, res) => {
+  const { 
+    q: searchQuery, 
+    page = 1, 
+    limit = 12,
+    category,
+    minPrice,
+    maxPrice,
+    inStock,
+    onSale,
+    sortBy = 'relevance'
+  } = req.query;
+
+  if (!searchQuery || searchQuery.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: 'Search query is required'
+    });
+  }
+
+  try {
+    const skip = (page - 1) * limit;
+    
+    // Build search conditions
+    const where = {
+      status: true,
+      OR: [
+        { name: { contains: searchQuery, mode: 'insensitive' } },
+        { description: { contains: searchQuery, mode: 'insensitive' } },
+        { tags: { has: searchQuery } },
+        { preparingMethods: { has: searchQuery } },
+        { 
+          category: {
+            name: { contains: searchQuery, mode: 'insensitive' }
+          }
+        }
+      ]
+    };
+
+    // Apply additional filters
+    if (category) {
+      where.categoryId = category;
+    }
+
+    if (minPrice || maxPrice) {
+      where.normalPrice = {};
+      if (minPrice) where.normalPrice.gte = parseFloat(minPrice);
+      if (maxPrice) where.normalPrice.lte = parseFloat(maxPrice);
+    }
+
+    if (inStock === 'true') {
+      where.stock = { gt: 0 };
+    }
+
+    if (onSale === 'true') {
+      where.offerPrice = { not: null };
+      where.OR = [
+        ...where.OR,
+        {
+          AND: [
+            { offerPrice: { not: null } },
+            { offerPrice: { lt: prisma.product.fields.normalPrice } }
+          ]
+        }
+      ];
+    }
+
+    // Get total count for pagination
+    const total = await prisma.product.count({ where });
+
+    // Build orderBy based on sort option
+    let orderBy = {};
+    switch (sortBy) {
+      case 'price-low':
+        orderBy = { normalPrice: 'asc' };
+        break;
+      case 'price-high':
+        orderBy = { normalPrice: 'desc' };
+        break;
+      case 'rating':
+        orderBy = { 
+          ratings: {
+            _count: 'desc'
+          }
+        };
+        break;
+      case 'name':
+        orderBy = { name: 'asc' };
+        break;
+      case 'relevance':
+      default:
+        // For relevance, we'll sort by multiple factors
+        orderBy = [
+          { isFeatured: 'desc' },
+          { createdAt: 'desc' }
+        ];
+        break;
+    }
+
+    // Get products with pagination
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            description: true
+          }
+        },
+        ratings: {
+          where: { isApproved: true },
+          select: {
+            rating: true,
+            id: true
+          }
+        },
+        orderItems: {
+          select: {
+            quantity: true
+          }
+        }
+      },
+      skip,
+      take: parseInt(limit),
+      orderBy
+    });
+
+    // Calculate relevance score and enrich products
+    const enrichedProducts = products.map(product => {
+      const totalRatings = product.ratings.length;
+      const averageRating = totalRatings > 0 
+        ? product.ratings.reduce((sum, r) => sum + r.rating, 0) / totalRatings 
+        : 0;
+      
+      const totalSales = product.orderItems.reduce((sum, item) => sum + item.quantity, 0);
+      
+      // Calculate relevance score based on search term matches
+      let relevanceScore = 0;
+      const searchTerm = searchQuery.toLowerCase();
+      
+      if (product.name.toLowerCase().includes(searchTerm)) relevanceScore += 3;
+      if (product.description.toLowerCase().includes(searchTerm)) relevanceScore += 2;
+      if (product.tags.some(tag => tag.toLowerCase().includes(searchTerm))) relevanceScore += 2;
+      if (product.preparingMethods?.some(method => method.toLowerCase().includes(searchTerm))) relevanceScore += 1;
+      if (product.category.name.toLowerCase().includes(searchTerm)) relevanceScore += 1;
+      
+      return {
+        ...product,
+        averageRating: parseFloat(averageRating.toFixed(1)),
+        totalRatings,
+        totalSales,
+        relevanceScore,
+        hasDiscount: product.offerPrice && product.offerPrice < product.normalPrice,
+        discountPercentage: product.offerPrice && product.offerPrice < product.normalPrice 
+          ? Math.round(((product.normalPrice - product.offerPrice) / product.normalPrice) * 100)
+          : 0
+      };
+    });
+
+    // Sort by relevance if that's the selected sort option
+    if (sortBy === 'relevance') {
+      enrichedProducts.sort((a, b) => {
+        // Featured products first
+        if (a.isFeatured && !b.isFeatured) return -1;
+        if (!a.isFeatured && b.isFeatured) return 1;
+        
+        // Then by relevance score
+        if (a.relevanceScore !== b.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        
+        // Then by sales count
+        return b.totalSales - a.totalSales;
+      });
+    }
+
+    // Get search suggestions for related terms - FIXED LINE
+    const searchSuggestions = await getSearchSuggestions(searchQuery);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        products: enrichedProducts,
+        searchMeta: {
+          query: searchQuery,
+          totalResults: total,
+          hasResults: enrichedProducts.length > 0,
+          suggestions: searchSuggestions,
+          filtersApplied: {
+            category: !!category,
+            priceRange: !!(minPrice || maxPrice),
+            inStock: inStock === 'true',
+            onSale: onSale === 'true'
+          }
+        },
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+          showing: enrichedProducts.length
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Global search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to perform search',
+      error: error.message
+    });
+  }
+});
+
+// Helper function for search suggestions
+export async function getSearchSuggestions(searchQuery) {
+  try {
+    // Get popular search terms from products
+    const suggestions = await prisma.product.findMany({
+      where: {
+        OR: [
+          { name: { contains: searchQuery, mode: 'insensitive' } },
+          { tags: { has: searchQuery } },
+          { 
+            category: {
+              name: { contains: searchQuery, mode: 'insensitive' }
+            }
+          }
+        ],
+        status: true
+      },
+      select: {
+        name: true,
+        tags: true,
+        category: {
+          select: {
+            name: true
+          }
+        }
+      },
+      take: 10
+    });
+
+    // Extract unique suggestions
+    const uniqueSuggestions = new Set();
+    
+    suggestions.forEach(product => {
+      // Add product name
+      if (product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        uniqueSuggestions.add(product.name);
+      }
+      
+      // Add matching tags
+      product.tags.forEach(tag => {
+        if (tag.toLowerCase().includes(searchQuery.toLowerCase())) {
+          uniqueSuggestions.add(tag);
+        }
+      });
+      
+      // Add category name
+      if (product.category.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        uniqueSuggestions.add(product.category.name);
+      }
+    });
+
+    return Array.from(uniqueSuggestions).slice(0, 5);
+  } catch (error) {
+    console.error('Error getting search suggestions:', error);
+    return [];
+  }
+}
